@@ -1,0 +1,2180 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Athlete, WorkoutPlan, TrainerProfile, Measurement, Exercise, ExportConfig, NutritionPlan, DietDay } from './types';
+import { Users, Dumbbell, Calendar, LayoutDashboard, Settings as SettingsIcon, Calculator, ArrowLeft, Download, Plus, Search, Trash, Trash2, Edit, RefreshCw, Scale, Flame, Percent, Activity, ChevronRight, History, TrendingUp, TrendingDown, Ruler, Phone, Camera, Image as ImageIcon, X, Filter, Sparkles, Circle, Anchor, Zap, Upload, FileJson, AlertOctagon, Check, Copy, LogOut, Shield, Database, Instagram, MapPin, FileCode, FileImage, UserPlus, FileText, AlertCircle, Mail, Globe, Send, PenTool, Share2, Palette, Eye, Moon, Layout, FolderOpen, Sun, Grid, Waves, Ban, Utensils, Droplet, Wheat, User, FileCog, Briefcase, Award, ChevronLeft, Target, BrainCircuit, ChefHat, Edit2, MoreVertical, Bike, Layers, List, ArrowUpDown, Archive, Clock, MoreHorizontal, SunDim, MoonStar, Sunrise, ToggleLeft, ToggleRight, CheckCircle2 } from 'lucide-react';
+import { Button, Card, Input, Label, Modal, Select, ToastContainer, ToastMessage, ConfirmDialog, Skeleton } from './components/UI';
+import { PlanBuilder } from './components/PlanBuilder';
+import { NutritionBuilder } from './components/NutritionBuilder';
+import { getAthletes, saveAthlete, getPlans, savePlan, getExercises, saveExercise, deleteExercise, deleteAthlete, deletePlan, getTrainerProfile, saveTrainerProfile, exportDatabase, importDatabase, initDB, getNutritionPlans, saveNutritionPlan, deleteNutritionPlan, resetDatabaseStore } from './services/db';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { generatePlanSuggestion, suggestExercisesForMuscle } from './services/geminiService';
+import { MUSCLE_GROUPS } from './constants';
+import html2canvas from 'html2canvas';
+
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to 70% quality
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
+const COLOR_PALETTES: Record<string, { label: string, colors: Record<string, string> }> = {
+    blue: {
+        label: 'آبی (پیش‌فرض)',
+        colors: {
+            '50': '239 246 255', '100': '219 234 254',
+            '500': '59 130 246', '600': '37 99 235', '700': '29 78 216', '800': '30 64 175', '900': '30 58 138'
+        }
+    },
+    emerald: {
+        label: 'سبز زمردی',
+        colors: {
+            '50': '236 253 245', '100': '209 250 229',
+            '500': '16 185 129', '600': '5 150 105', '700': '4 120 87', '800': '6 95 70', '900': '6 78 59'
+        }
+    },
+    purple: {
+        label: 'بنفش',
+        colors: {
+            '50': '245 243 255', '100': '237 233 254',
+            '500': '139 92 246', '600': '124 58 237', '700': '109 40 217', '800': '91 33 182', '900': '76 29 149'
+        }
+    },
+    rose: {
+        label: 'سرخ',
+        colors: {
+            '50': '255 241 242', '100': '255 228 229',
+            '500': '244 63 94', '600': '225 29 72', '700': '190 18 60', '800': '159 18 57', '900': '136 19 55'
+        }
+    },
+    amber: {
+        label: 'طلایی',
+        colors: {
+            '50': '255 251 235', '100': '254 243 199',
+            '500': '245 158 11', '600': '217 119 6', '700': '180 83 9', '800': '146 64 14', '900': '120 53 15'
+        }
+    },
+};
+
+function App() {
+    const [currentView, setCurrentView] = useState<View>('dashboard');
+
+    // Theme States
+    const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
+    const [appColor, setAppColor] = useState(localStorage.getItem('appColor') || 'blue');
+    const [isBoldTheme, setIsBoldTheme] = useState(localStorage.getItem('isBoldTheme') === 'true');
+
+    // Toggle Dark Mode
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (isDarkMode) {
+            root.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            root.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [isDarkMode]);
+
+    // Apply App Color
+    useEffect(() => {
+        const palette = COLOR_PALETTES[appColor] || COLOR_PALETTES['blue'];
+        const root = document.documentElement;
+
+        Object.entries(palette.colors).forEach(([shade, value]) => {
+            root.style.setProperty(`--primary-${shade}`, value);
+        });
+
+        localStorage.setItem('appColor', appColor);
+    }, [appColor]);
+
+    // Apply Bold Theme
+    useEffect(() => {
+        if (isBoldTheme) {
+            document.body.classList.add('theme-bold');
+        } else {
+            document.body.classList.remove('theme-bold');
+        }
+        localStorage.setItem('isBoldTheme', String(isBoldTheme));
+    }, [isBoldTheme]);
+
+    // Data State
+    const [athletes, setAthletes] = useState<Athlete[]>([]);
+    const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+    const [nutritionPlans, setNutritionPlans] = useState<NutritionPlan[]>([]);
+    const [trainerProfile, setTrainerProfile] = useState<TrainerProfile | null>(null);
+    const [exercises, setExercises] = useState<Exercise[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // UI State
+    const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
+    const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
+    const [isAthleteModalOpen, setIsAthleteModalOpen] = useState(false);
+    const [isMeasurementModalOpen, setIsMeasurementModalOpen] = useState(false);
+    const [chartMetric, setChartMetric] = useState<string>('weight');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+
+    // Toast State
+    const [toasts, setToasts] = useState<ToastMessage[]>([]);
+    const addToast = (title: string, message: string = '', type: 'success' | 'error' | 'info' = 'success') => {
+        const id = Math.random().toString(36).substring(2, 9);
+        setToasts(prev => [...prev, { id, title, message, type }]);
+        setTimeout(() => removeToast(id), 4000);
+    };
+    const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
+
+    // Confirm Dialog State
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        variant?: 'danger' | 'primary';
+    }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, variant: 'danger' | 'primary' = 'danger') => {
+        setConfirmState({ isOpen: true, title, message, onConfirm: () => { onConfirm(); setConfirmState(prev => ({ ...prev, isOpen: false })); }, variant });
+    };
+
+    // Export Modal State
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [planToExport, setPlanToExport] = useState<WorkoutPlan | null>(null);
+    const [dietToExport, setDietToExport] = useState<NutritionPlan | null>(null); // For nutrition export
+    const [exportConfig, setExportConfig] = useState<ExportConfig>({
+        theme: 'modern',
+        primaryColor: '#2563eb',
+        showTrainerInfo: true,
+        showSlogan: true,
+        showSignature: true,
+        showQuote: false,
+        backgroundPattern: 'dots'
+    });
+    const [isExporting, setIsExporting] = useState(false);
+
+    // Photo Viewer State
+    const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+
+    // Fetch Data
+    const refreshData = async () => {
+        const [a, p, e, tp, np] = await Promise.all([
+            getAthletes(),
+            getPlans(),
+            getExercises(),
+            getTrainerProfile(),
+            getNutritionPlans()
+        ]);
+        setAthletes(a);
+        setPlans(p);
+        setExercises(e);
+        setTrainerProfile(tp);
+        setNutritionPlans(np);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        refreshData();
+    }, []);
+
+    const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const key = e.target.value;
+        setApiKey(key);
+        localStorage.setItem('gemini_api_key', key);
+    }
+
+    // 1. Dashboard View
+    const DashboardView = () => {
+        if (isLoading) {
+            return (
+                <div className="space-y-6 pb-20">
+                    <div className="flex justify-between items-center mb-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-14 w-14 rounded-2xl" /></div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 rounded-3xl" />)}</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-6"><Skeleton className="h-64 rounded-3xl" /><Skeleton className="h-64 rounded-3xl" /></div>
+                        <div className="space-y-6"><Skeleton className="h-40 rounded-3xl" /><Skeleton className="h-64 rounded-3xl" /></div>
+                    </div>
+                </div>
+            );
+        }
+        const monthlyJoiners = athletes.filter(a => {
+            const d = new Date(a.joinDate);
+            const now = new Date();
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length;
+
+        const recentActivities = [
+            ...athletes.map(a => ({
+                type: 'athlete',
+                date: new Date(a.joinDate).getTime(),
+                title: `ثبت نام ورزشکار جدید: ${a.fullName}`,
+                meta: `${a.age} ساله، هدف: ${a.currentGoal || 'نامشخص'}`
+            })),
+            ...plans.map(p => ({
+                type: 'plan',
+                date: p.created_at || 0,
+                title: `طراحی برنامه جدید: ${p.name}`,
+                meta: `برای ${athletes.find(a => a.id === p.athleteId)?.fullName || 'ورزشکار'}`
+            }))
+        ].sort((a, b) => b.date - a.date).slice(0, 5);
+
+        const goalStats = athletes.reduce((acc, curr) => {
+            const g = curr.currentGoal || 'سایر';
+            acc[g] = (acc[g] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        const goalChartData = Object.keys(goalStats).map(k => ({ name: k, value: goalStats[k] }));
+        const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+        const warningAthletes = athletes.filter(a => {
+            if (a.measurements.length === 0) return false;
+            const lastDate = new Date(a.measurements[a.measurements.length - 1].date);
+            const diffTime = Math.abs(Date.now() - lastDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 30;
+        }).slice(0, 3);
+
+        // Time based greeting
+        const hour = new Date().getHours();
+        let greeting = 'روز بخیر';
+        let GreetingIcon = Sun;
+        if (hour < 12) { greeting = 'صبح بخیر'; GreetingIcon = Sunrise; }
+        else if (hour < 18) { greeting = 'عصر بخیر'; GreetingIcon = SunDim; }
+        else { greeting = 'شب بخیر'; GreetingIcon = MoonStar; }
+
+        return (
+            <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Header Section */}
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
+                            {greeting}، <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">{trainerProfile?.name || 'مربی عزیز'}</span> <GreetingIcon className="text-amber-500 hidden md:block" size={32} />
+                        </h1>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium mt-2 text-base">
+                            خلاصه فعالیت‌های باشگاه شما در {new Date().toLocaleDateString('fa-IR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </p>
+                    </div>
+                    {trainerProfile?.logoUrl && (
+                        <img src={trainerProfile.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-lg border-2 border-white dark:border-dark-700 hover:scale-105 transition-transform" />
+                    )}
+                </header>
+
+                {/* Stats Grid - Modernized */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    <div className="bg-white dark:bg-dark-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-dark-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
+                            <Users size={80} className="text-blue-600 dark:text-blue-400 transform -rotate-12 translate-x-4 -translate-y-4" />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm dark:shadow-none">
+                                <Users size={24} />
+                            </div>
+                            <div className="text-3xl font-black text-gray-800 dark:text-white mb-1">{athletes.length}</div>
+                            <div className="text-sm font-bold text-gray-500 dark:text-gray-400">کل ورزشکاران</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-dark-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-dark-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
+                            <FileText size={80} className="text-emerald-600 dark:text-emerald-400 transform -rotate-12 translate-x-4 -translate-y-4" />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm dark:shadow-none">
+                                <FileText size={24} />
+                            </div>
+                            <div className="text-3xl font-black text-gray-800 dark:text-white mb-1">{plans.length}</div>
+                            <div className="text-sm font-bold text-gray-500 dark:text-gray-400">برنامه‌های فعال</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-dark-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-dark-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
+                            <Dumbbell size={80} className="text-purple-600 dark:text-purple-400 transform -rotate-12 translate-x-4 -translate-y-4" />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm dark:shadow-none">
+                                <Dumbbell size={24} />
+                            </div>
+                            <div className="text-3xl font-black text-gray-800 dark:text-white mb-1">{exercises.length}</div>
+                            <div className="text-sm font-bold text-gray-500 dark:text-gray-400">بانک حرکات</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-dark-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-dark-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
+                            <Calendar size={80} className="text-orange-600 dark:text-orange-400 transform -rotate-12 translate-x-4 -translate-y-4" />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm dark:shadow-none">
+                                <UserPlus size={24} />
+                            </div>
+                            <div className="text-3xl font-black text-gray-800 dark:text-white mb-1">{monthlyJoiners}</div>
+                            <div className="text-sm font-bold text-gray-500 dark:text-gray-400">ورودی ماه جاری</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
+                    {/* Main Content Area */}
+                    <div className="xl:col-span-2 space-y-6 md:space-y-8">
+                        {/* Quick Actions Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <button onClick={() => { setSelectedAthlete(null); setEditingAthlete(null); setIsAthleteModalOpen(true); }} className="bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white p-4 rounded-3xl shadow-lg shadow-primary-200 dark:shadow-none flex flex-col items-center justify-center gap-2.5 group transition-all active:scale-95 border border-transparent">
+                                <div className="bg-white/20 p-2.5 rounded-2xl group-hover:rotate-12 transition-transform"><UserPlus size={26} /></div>
+                                <span className="font-bold text-sm">شاگرد جدید</span>
+                            </button>
+                            <button onClick={() => setCurrentView('plan-builder')} className="bg-white dark:bg-dark-800 border border-gray-100 dark:border-dark-700 hover:border-indigo-200 dark:hover:border-indigo-800 p-4 rounded-3xl shadow-sm hover:shadow-md flex flex-col items-center justify-center gap-2.5 group transition-all active:scale-95">
+                                <div className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 p-2.5 rounded-2xl group-hover:rotate-12 transition-transform"><FileText size={26} /></div>
+                                <span className="font-bold text-sm text-gray-700 dark:text-gray-200">برنامه جدید</span>
+                            </button>
+                            <button onClick={() => setCurrentView('nutrition-builder')} className="bg-white dark:bg-dark-800 border border-gray-100 dark:border-dark-700 hover:border-emerald-200 dark:hover:border-emerald-800 p-4 rounded-3xl shadow-sm hover:shadow-md flex flex-col items-center justify-center gap-2.5 group transition-all active:scale-95">
+                                <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-2.5 rounded-2xl group-hover:rotate-12 transition-transform"><Utensils size={26} /></div>
+                                <span className="font-bold text-sm text-gray-700 dark:text-gray-200">رژیم جدید</span>
+                            </button>
+                            <button onClick={() => setCurrentView('tools')} className="bg-white dark:bg-dark-800 border border-gray-100 dark:border-dark-700 hover:border-purple-200 dark:hover:border-purple-800 p-4 rounded-3xl shadow-sm hover:shadow-md flex flex-col items-center justify-center gap-2.5 group transition-all active:scale-95">
+                                <div className="bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 p-2.5 rounded-2xl group-hover:rotate-12 transition-transform"><Calculator size={26} /></div>
+                                <span className="font-bold text-sm text-gray-700 dark:text-gray-200">ابزارها</span>
+                            </button>
+                        </div>
+
+                        {/* Charts & Activity Split */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Goal Distribution Chart */}
+                            <Card className="p-6 flex flex-col justify-between min-h-[360px] relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-1">اهداف ورزشکاران</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">توزیع آماری بر اساس هدف تمرینی</p>
+                                </div>
+                                <div className="h-[220px] w-full relative z-10 my-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={goalChartData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={5} dataKey="value" cornerRadius={8} stroke="none">
+                                                {goalChartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stroke="none" />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: 'Vazirmatn', backgroundColor: isDarkMode ? '#1e293b' : '#fff', color: isDarkMode ? '#fff' : '#000' }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                                        <span className="font-black text-4xl text-gray-800 dark:text-white">{athletes.length}</span>
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">نفر کل</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 justify-center relative z-10">
+                                    {goalChartData.slice(0, 4).map((entry, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-dark-700 px-2.5 py-1.5 rounded-lg border border-gray-100 dark:border-dark-600">
+                                            <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}></div>
+                                            {entry.name || 'نامشخص'}
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Decorative BG */}
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 dark:bg-primary-900/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                            </Card>
+
+                            {/* Activity Feed */}
+                            <Card className="p-0 overflow-hidden flex flex-col h-full max-h-[400px]">
+                                <div className="p-6 border-b border-gray-100 dark:border-dark-700 flex justify-between items-center bg-gray-50/50 dark:bg-dark-900/50 backdrop-blur-sm sticky top-0 z-10">
+                                    <div>
+                                        <h3 className="font-bold text-xl text-gray-900 dark:text-white">فعالیت‌ها</h3>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">رویدادهای اخیر باشگاه</p>
+                                    </div>
+                                    <div className="p-2.5 bg-white dark:bg-dark-700 rounded-xl shadow-sm text-primary-500 border border-gray-100 dark:border-dark-600"><Activity size={20} /></div>
+                                </div>
+                                <div className="overflow-y-auto custom-scrollbar flex-1 p-4 space-y-2">
+                                    {recentActivities.map((item, idx) => (
+                                        <div key={idx} className="p-4 rounded-2xl flex items-start gap-4 hover:bg-gray-50 dark:hover:bg-dark-700 transition-all border border-transparent hover:border-gray-100 dark:hover:border-dark-600">
+                                            <div className={`mt-1 w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-white shadow-sm ${item.type === 'athlete' ? 'bg-orange-500' : 'bg-emerald-500'}`}>
+                                                {item.type === 'athlete' ? <User size={18} /> : <FileText size={18} />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-gray-800 dark:text-gray-200 text-sm leading-snug">{item.title}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">{item.meta}</div>
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 font-medium whitespace-nowrap bg-gray-100 dark:bg-dark-800 px-2 py-1 rounded-lg">
+                                                {new Date(item.date).toLocaleDateString('fa-IR')}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {recentActivities.length === 0 && (
+                                        <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 py-10 opacity-60">
+                                            <History size={40} className="mb-2" />
+                                            <p className="text-sm font-medium">هنوز فعالیتی ثبت نشده است</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+
+                    {/* Sidebar Column */}
+                    <div className="space-y-6 md:space-y-8">
+                        {/* Needs Attention Widget */}
+                        <Card className="p-6 bg-gradient-to-br from-orange-50 to-orange-100/30 dark:from-orange-900/10 dark:to-orange-900/5 border-orange-100 dark:border-orange-900/30">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-white dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center shadow-sm border border-orange-100 dark:border-orange-900/30 animate-pulse">
+                                    <AlertCircle size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white">نیاز به پیگیری</h3>
+                                    <div className="text-xs text-orange-600 dark:text-orange-400 font-bold bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-md w-fit mt-1">{warningAthletes.length} مورد یافت شد</div>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                {warningAthletes.map(a => (
+                                    <div key={a.id} className="flex items-center justify-between p-3 bg-white dark:bg-dark-800 rounded-2xl border border-gray-100 dark:border-dark-700 shadow-sm hover:shadow-md dark:hover:bg-dark-700 transition-all cursor-pointer group" onClick={() => { setSelectedAthlete(a); setCurrentView('athletes'); }}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-dark-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-300 group-hover:bg-orange-100 group-hover:text-orange-600 transition-colors">{a.fullName.charAt(0)}</div>
+                                            <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{a.fullName}</span>
+                                        </div>
+                                        <ChevronLeft size={16} className="text-gray-300 dark:text-gray-600 group-hover:-translate-x-1 transition-transform" />
+                                    </div>
+                                ))}
+                                {warningAthletes.length === 0 && (
+                                    <div className="text-center py-6">
+                                        <div className="text-emerald-600 dark:text-emerald-400 font-bold text-sm flex items-center justify-center gap-2">
+                                            <Check size={18} /> همه چیز عالی است!
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">هیچ ورزشکار غیرفعالی ندارید.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+
+                        {/* Recent Joiners */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end px-1">
+                                <h3 className="font-bold text-lg text-gray-900 dark:text-white">جدیدترین اعضا</h3>
+                                <button onClick={() => setCurrentView('athletes')} className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline bg-primary-50 dark:bg-primary-900/20 px-3 py-1 rounded-full">مشاهده همه</button>
+                            </div>
+                            {athletes.length > 0 ? (
+                                <div className="space-y-3">
+                                    {athletes.slice(-5).reverse().map(athlete => (
+                                        <div key={athlete.id} className="flex items-center gap-4 cursor-pointer hover:bg-white dark:hover:bg-dark-800 p-3 rounded-2xl transition-all group border border-transparent hover:border-gray-100 dark:hover:border-dark-700 hover:shadow-sm" onClick={() => { setSelectedAthlete(athlete); setCurrentView('athletes'); }}>
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-700 dark:to-dark-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-black text-sm group-hover:from-primary-500 group-hover:to-primary-600 group-hover:text-white transition-all shadow-sm">
+                                                {athlete.fullName.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">{athlete.fullName}</div>
+                                                <div className="text-xs text-gray-400 font-medium mt-0.5">{new Date(athlete.joinDate).toLocaleDateString('fa-IR')}</div>
+                                            </div>
+                                            <ChevronLeft size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center text-gray-400 dark:text-gray-500 text-sm py-8 bg-gray-50 dark:bg-dark-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-dark-700">
+                                    هنوز عضوی ندارید
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // 2. Athletes View
+    const AthletesView = () => {
+        const filteredAthletes = athletes.filter(a => a.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        return (
+            <div className="space-y-6 pb-24">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">ورزشکاران</h2>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-64">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                            <Input
+                                placeholder="جستجو..."
+                                className="pr-10 h-12 bg-white dark:bg-dark-800 border-none shadow-sm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <Button onClick={() => { setSelectedAthlete(null); setEditingAthlete(null); setIsAthleteModalOpen(true); }} className="h-12 px-6">
+                            <Plus size={20} className="ml-2" /> ورزشکار جدید
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredAthletes.map(athlete => (
+                        <Card key={athlete.id} onClick={() => setSelectedAthlete(athlete)} className="p-5 hover:border-primary-200 dark:hover:border-primary-800 cursor-pointer group relative overflow-hidden">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-dark-700 flex items-center justify-center text-xl font-black text-gray-500 dark:text-gray-400 group-hover:bg-primary-500 group-hover:text-white transition-colors shadow-sm">
+                                    {athlete.fullName.charAt(0)}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{athlete.fullName}</h3>
+                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-dark-900 px-2 py-1 rounded-md mt-1 inline-block">
+                                        {athlete.status === 'archived' ? 'بایگانی شده' : 'فعال'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="bg-gray-50 dark:bg-dark-900/50 p-2 rounded-xl text-center">
+                                    <span className="block font-bold text-gray-800 dark:text-gray-200">{athlete.age}</span>
+                                    <span className="text-[10px]">سن</span>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-dark-900/50 p-2 rounded-xl text-center">
+                                    <span className="block font-bold text-gray-800 dark:text-gray-200">{athlete.measurements[athlete.measurements.length - 1]?.weight || '-'}</span>
+                                    <span className="text-[10px]">وزن فعلی</span>
+                                </div>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+                {filteredAthletes.length === 0 && <div className="text-center py-12 text-gray-400">موردی یافت نشد</div>}
+            </div>
+        );
+    };
+
+    // 3. Athlete Detail View
+    const AthleteDetailView = () => {
+        if (!selectedAthlete) return null;
+        const athletePlans = plans.filter(p => p.athleteId === selectedAthlete.id);
+        const athleteDiets = nutritionPlans.filter(p => p.athleteId === selectedAthlete.id);
+
+        const chartData = selectedAthlete.measurements.map(m => ({
+            date: new Date(m.date).toLocaleDateString('fa-IR'),
+            value: m[chartMetric as keyof Measurement] || 0
+        })).slice(-10); // Last 10 records
+
+        return (
+            <div className="space-y-6 pb-24 animate-in slide-in-from-right-8 duration-300">
+                <div className="flex items-center gap-2 mb-4">
+                    <Button variant="ghost" onClick={() => setSelectedAthlete(null)} className="rounded-full w-10 h-10 p-0"><ArrowLeft /></Button>
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white">پروفایل ورزشکار</h2>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Sidebar Info */}
+                    <div className="space-y-6">
+                        <Card className="p-6 text-center">
+                            <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-dark-700 rounded-full flex items-center justify-center text-3xl font-black text-gray-400 dark:text-gray-500 mb-4 border-4 border-white dark:border-dark-800 shadow-lg">
+                                {selectedAthlete.fullName.charAt(0)}
+                            </div>
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white">{selectedAthlete.fullName}</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{selectedAthlete.currentGoal || 'بدون هدف'}</p>
+
+                            <div className="grid grid-cols-3 gap-2 mt-6">
+                                <div className="p-3 bg-gray-50 dark:bg-dark-900 rounded-2xl">
+                                    <div className="font-bold text-lg">{selectedAthlete.age}</div>
+                                    <div className="text-xs text-gray-500">سن</div>
+                                </div>
+                                <div className="p-3 bg-gray-50 dark:bg-dark-900 rounded-2xl">
+                                    <div className="font-bold text-lg">{selectedAthlete.height}</div>
+                                    <div className="text-xs text-gray-500">قد (cm)</div>
+                                </div>
+                                <div className="p-3 bg-gray-50 dark:bg-dark-900 rounded-2xl">
+                                    <div className="font-bold text-lg">{selectedAthlete.measurements[selectedAthlete.measurements.length - 1]?.weight || '-'}</div>
+                                    <div className="text-xs text-gray-500">وزن (kg)</div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex gap-2">
+                                <Button className="flex-1" variant="secondary" onClick={() => { setEditingAthlete(selectedAthlete); setIsAthleteModalOpen(true); }}>
+                                    <Edit size={16} className="ml-2" /> ویرایش
+                                </Button>
+                                <Button variant="danger" className="w-12 px-0" onClick={() => {
+                                    showConfirm('حذف ورزشکار', `آیا از حذف ${selectedAthlete.fullName} اطمینان دارید؟ تمامی سوابق حذف خواهند شد.`, async () => {
+                                        await deleteAthlete(selectedAthlete.id);
+                                        refreshData();
+                                        setSelectedAthlete(null);
+                                        addToast('ورزشکار حذف شد');
+                                    });
+                                }}>
+                                    <Trash size={18} />
+                                </Button>
+                            </div>
+                        </Card>
+
+                        {/* Measurement Chart */}
+                        <Card className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="font-bold text-gray-900 dark:text-white">روند پیشرفت</h4>
+                                <select
+                                    value={chartMetric}
+                                    onChange={(e) => setChartMetric(e.target.value)}
+                                    className="bg-gray-50 dark:bg-dark-900 border-none text-xs rounded-lg p-1"
+                                >
+                                    <option value="weight">وزن</option>
+                                    <option value="bodyFat">درصد چربی</option>
+                                    <option value="waist">دور کمر</option>
+                                </select>
+                            </div>
+                            <div className="h-48 w-full">
+                                <ResponsiveContainer>
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#e2e8f0'} />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                                        <YAxis hide domain={['auto', 'auto']} />
+                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                        <Line type="monotone" dataKey="value" stroke="var(--primary-500)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Main Content (Plans) */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <Button onClick={() => setCurrentView('plan-builder')} className="h-14 text-lg">
+                                <Plus size={20} className="ml-2" /> برنامه تمرینی جدید
+                            </Button>
+                            <Button onClick={() => setCurrentView('nutrition-builder')} variant="secondary" className="h-14 text-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 bg-emerald-50/50">
+                                <Utensils size={20} className="ml-2" /> رژیم غذایی جدید
+                            </Button>
+                        </div>
+
+                        <h4 className="font-bold text-lg text-gray-900 dark:text-white mt-4">برنامه‌های فعال</h4>
+                        {athletePlans.length === 0 && athleteDiets.length === 0 && (
+                            <div className="text-center py-10 bg-gray-50 dark:bg-dark-800 rounded-3xl border border-dashed border-gray-200 dark:border-dark-700">
+                                <p className="text-gray-400">هیچ برنامه‌ای ثبت نشده است</p>
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            {/* Workout Plans */}
+                            {athletePlans.map(plan => (
+                                <Card key={plan.id} className="p-0 flex flex-col md:flex-row overflow-hidden group">
+                                    <div className="bg-blue-600 text-white w-full md:w-24 flex items-center justify-center p-4 md:p-0">
+                                        <Dumbbell size={32} />
+                                    </div>
+                                    <div className="p-5 flex-1 flex flex-col justify-center">
+                                        <h5 className="font-bold text-lg text-gray-900 dark:text-white">{plan.name}</h5>
+                                        <p className="text-sm text-gray-500 mt-1">{plan.days.length} روز تمرینی • تاریخ: {new Date(plan.created_at).toLocaleDateString('fa-IR')}</p>
+                                    </div>
+                                    <div className="p-4 flex items-center gap-2 border-t md:border-t-0 md:border-r border-gray-100 dark:border-dark-700">
+                                        <Button size="sm" variant="ghost" onClick={() => { setPlanToExport(plan); setDietToExport(null); setIsExportModalOpen(true); }}><Share2 size={18} /></Button>
+                                        <Button size="sm" variant="danger" onClick={() => showConfirm('حذف برنامه', 'آیا از حذف این برنامه مطمئن هستید؟', async () => { await deletePlan(plan.id); refreshData(); })}><Trash size={18} /></Button>
+                                    </div>
+                                </Card>
+                            ))}
+
+                            {/* Nutrition Plans */}
+                            {athleteDiets.map(plan => (
+                                <Card key={plan.id} className="p-0 flex flex-col md:flex-row overflow-hidden group">
+                                    <div className="bg-emerald-600 text-white w-full md:w-24 flex items-center justify-center p-4 md:p-0">
+                                        <Utensils size={32} />
+                                    </div>
+                                    <div className="p-5 flex-1 flex flex-col justify-center">
+                                        <h5 className="font-bold text-lg text-gray-900 dark:text-white">{plan.name}</h5>
+                                        <p className="text-sm text-gray-500 mt-1">{plan.days.length} روز رژیم • تاریخ: {new Date(plan.created_at).toLocaleDateString('fa-IR')}</p>
+                                    </div>
+                                    <div className="p-4 flex items-center gap-2 border-t md:border-t-0 md:border-r border-gray-100 dark:border-dark-700">
+                                        <Button size="sm" variant="ghost" onClick={() => { setDietToExport(plan); setPlanToExport(null); setIsExportModalOpen(true); }}><Share2 size={18} /></Button>
+                                        <Button size="sm" variant="danger" onClick={() => showConfirm('حذف رژیم', 'آیا از حذف این رژیم مطمئن هستید؟', async () => { await deleteNutritionPlan(plan.id); refreshData(); })}><Trash size={18} /></Button>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // 4. Exercises View
+    const ExercisesView = () => {
+        const [search, setSearch] = useState('');
+        const [filterMuscle, setFilterMuscle] = useState('All');
+        const [isModalOpen, setIsModalOpen] = useState(false);
+
+        const filtered = exercises.filter(e =>
+            (filterMuscle === 'All' || e.muscleGroup === filterMuscle) &&
+            e.name.toLowerCase().includes(search.toLowerCase())
+        );
+
+        return (
+            <div className="space-y-6 pb-20">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white">بانک حرکات</h2>
+                    <Button onClick={() => setIsModalOpen(true)}>
+                        <Plus size={20} className="ml-2" /> حرکت جدید
+                    </Button>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                    <button onClick={() => setFilterMuscle('All')} className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-colors ${filterMuscle === 'All' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-dark-800 text-gray-600 dark:text-gray-400'}`}>همه</button>
+                    {MUSCLE_GROUPS.map(m => (
+                        <button key={m} onClick={() => setFilterMuscle(m)} className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-colors ${filterMuscle === m ? 'bg-primary-600 text-white' : 'bg-white dark:bg-dark-800 text-gray-600 dark:text-gray-400'}`}>{m}</button>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filtered.map(ex => (
+                        <div key={ex.id} className="bg-white dark:bg-dark-800 p-4 rounded-2xl border border-gray-100 dark:border-dark-700 flex justify-between items-center group hover:shadow-md transition-all">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-dark-700 flex items-center justify-center text-gray-500">
+                                    <Dumbbell size={20} />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-gray-800 dark:text-white">{ex.name}</div>
+                                    <div className="text-xs text-gray-500">{ex.muscleGroup}</div>
+                                </div>
+                            </div>
+                            <button onClick={() => showConfirm('حذف حرکت', 'آیا مطمئن هستید؟', async () => { await deleteExercise(ex.id); refreshData(); })} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="افزودن حرکت جدید">
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.target as HTMLFormElement);
+                        const newEx: Exercise = {
+                            id: crypto.randomUUID(),
+                            name: formData.get('name') as string,
+                            muscleGroup: formData.get('muscle') as string,
+                            type: formData.get('type') as any
+                        };
+                        await saveExercise(newEx);
+                        refreshData();
+                        setIsModalOpen(false);
+                        addToast('حرکت اضافه شد');
+                    }} className="space-y-4">
+                        <div><Label>نام حرکت</Label><Input name="name" required autoFocus /></div>
+                        <div><Label>عضله هدف</Label><Select name="muscle">{MUSCLE_GROUPS.map(m => <option key={m} value={m}>{m}</option>)}</Select></div>
+                        <div><Label>نوع تجهیزات</Label><Select name="type"><option value="Machine">دستگاه</option><option value="Dumbbell">دمبل</option><option value="Barbell">هالتر</option><option value="Cable">سیم‌کش</option><option value="Bodyweight">وزن بدن</option></Select></div>
+                        <Button type="submit" className="w-full h-12 mt-4">ثبت حرکت</Button>
+                    </form>
+                </Modal>
+            </div>
+        );
+    };
+
+    // 5. Tools View
+    const ToolsView = () => {
+        // 1RM Calculator State
+        const [weight, setWeight] = useState('');
+        const [reps, setReps] = useState('');
+        const [oneRM, setOneRM] = useState<number | null>(null);
+
+        const calculate1RM = () => {
+            const w = parseFloat(weight);
+            const r = parseFloat(reps);
+            if (w && r) {
+                // Epley formula
+                const rm = w * (1 + r / 30);
+                setOneRM(Math.round(rm));
+            }
+        };
+
+        // BMI Calculator State
+        const [bmiHeight, setBmiHeight] = useState('');
+        const [bmiWeight, setBmiWeight] = useState('');
+        const [bmiResult, setBmiResult] = useState<number | null>(null);
+
+        const calculateBMI = () => {
+            const h = parseFloat(bmiHeight) / 100; // cm to m
+            const w = parseFloat(bmiWeight);
+            if (h && w) {
+                const bmi = w / (h * h);
+                setBmiResult(parseFloat(bmi.toFixed(1)));
+            }
+        };
+
+        // AI Plan Generator
+        const [aiPrompt, setAiPrompt] = useState('');
+        const [aiLoading, setAiLoading] = useState(false);
+        const [aiResult, setAiResult] = useState('');
+
+        const handleAiGenerate = async () => {
+            if (!apiKey) { addToast('کلید API تنظیم نشده است', 'لطفا ابتدا در تنظیمات کلید را وارد کنید', 'error'); return; }
+            setAiLoading(true);
+            try {
+                const res = await generatePlanSuggestion(aiPrompt, 'تناسب اندام', apiKey);
+                setAiResult(res);
+            } catch (e) {
+                addToast('خطا', 'مشکلی در ارتباط با هوش مصنوعی پیش آمد', 'error');
+            } finally {
+                setAiLoading(false);
+            }
+        };
+
+        return (
+            <div className="space-y-6 pb-20">
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">ابزارها</h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* 1RM Calculator */}
+                    <Card className="p-6">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Dumbbell className="text-blue-500" /> محاسبه گر 1RM</h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><Label>وزنه (kg)</Label><Input type="number" value={weight} onChange={e => setWeight(e.target.value)} /></div>
+                                <div><Label>تکرار</Label><Input type="number" value={reps} onChange={e => setReps(e.target.value)} /></div>
+                            </div>
+                            <Button onClick={calculate1RM} className="w-full">محاسبه</Button>
+                            {oneRM && (
+                                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-center">
+                                    <div className="text-sm text-gray-500">یک تکرار بیشینه شما:</div>
+                                    <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{oneRM} kg</div>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* BMI Calculator */}
+                    <Card className="p-6">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Activity className="text-emerald-500" /> محاسبه شاخص توده بدنی (BMI)</h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><Label>قد (cm)</Label><Input type="number" value={bmiHeight} onChange={e => setBmiHeight(e.target.value)} /></div>
+                                <div><Label>وزن (kg)</Label><Input type="number" value={bmiWeight} onChange={e => setBmiWeight(e.target.value)} /></div>
+                            </div>
+                            <Button onClick={calculateBMI} variant="secondary" className="w-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">محاسبه</Button>
+                            {bmiResult && (
+                                <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl text-center">
+                                    <div className="text-sm text-gray-500">شاخص BMI شما:</div>
+                                    <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{bmiResult}</div>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* AI Planner */}
+                    <Card className="p-6 md:col-span-2 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border-indigo-100 dark:border-indigo-900/30">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-indigo-800 dark:text-indigo-300"><BrainCircuit /> دستیار هوشمند مربی (Gemini AI)</h3>
+                        {!apiKey ? (
+                            <div className="text-center py-6">
+                                <p className="text-gray-500 mb-4">برای استفاده از هوش مصنوعی، کلید API را وارد کنید.</p>
+                                <Input placeholder="API Key" type="password" value={apiKey} onChange={handleApiKeyChange} className="max-w-xs mx-auto text-center" />
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <Label>توضیحات ورزشکار و هدف (مثلا: مرد ۳۰ ساله، مبتدی، هدف کاهش وزن)</Label>
+                                <textarea
+                                    value={aiPrompt}
+                                    onChange={e => setAiPrompt(e.target.value)}
+                                    className="w-full p-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-dark-800 dark:border-dark-600"
+                                    placeholder="توضیحات را بنویسید..."
+                                />
+                                <Button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+                                    {aiLoading ? 'در حال تفکر...' : 'پیشنهاد برنامه'}
+                                </Button>
+                                {aiResult && (
+                                    <div className="mt-6 p-4 bg-white dark:bg-dark-800 rounded-2xl border border-gray-100 dark:border-dark-600 whitespace-pre-wrap leading-relaxed text-sm">
+                                        {aiResult}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Card>
+                </div>
+            </div>
+        );
+    };
+
+    // 6. SettingsView (Major Update)
+    const SettingsView = () => {
+        const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'data'>('profile');
+        const fileInputRef = React.useRef<HTMLInputElement>(null);
+        const [certs, setCerts] = useState<string[]>(trainerProfile?.certifications || []);
+        const [newCert, setNewCert] = useState('');
+
+        const addCert = () => {
+            if (newCert.trim() && !certs.includes(newCert.trim())) {
+                setCerts([...certs, newCert.trim()]);
+                setNewCert('');
+            }
+        };
+
+        const removeCert = (cert: string) => {
+            setCerts(certs.filter(c => c !== cert));
+        };
+
+        const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const content = ev.target?.result as string;
+                const success = await importDatabase(content);
+                if (success) { addToast('اطلاعات با موفقیت بازیابی شد'); refreshData(); } else { addToast('خطا در بازیابی اطلاعات', 'فایل نامعتبر است', 'error'); }
+            };
+            reader.readAsText(file);
+        };
+
+        const handleSaveProfile = async (e: React.FormEvent) => {
+            e.preventDefault();
+            const formData = new FormData(e.target as HTMLFormElement);
+            const logoFile = (formData.get('logo') as File);
+            const signatureFile = (formData.get('signature') as File);
+
+            let logoUrl = trainerProfile?.logoUrl;
+            let signatureUrl = trainerProfile?.signatureUrl;
+
+            if (logoFile && logoFile.size > 0) { logoUrl = await compressImage(logoFile); }
+            if (signatureFile && signatureFile.size > 0) { signatureUrl = await compressImage(signatureFile); }
+
+            const profile: TrainerProfile = {
+                name: formData.get('name') as string,
+                clubName: formData.get('clubName') as string,
+                slogan: formData.get('slogan') as string,
+                bio: formData.get('bio') as string,
+                phone: formData.get('phone') as string,
+                instagram: formData.get('instagram') as string,
+                telegram: formData.get('telegram') as string,
+                email: formData.get('email') as string,
+                website: formData.get('website') as string,
+                certifications: certs,
+                logoUrl,
+                signatureUrl
+            };
+            await saveTrainerProfile(profile);
+            setTrainerProfile(profile);
+            addToast('تنظیمات ذخیره شد');
+        };
+
+        const handleReset = (store: 'athletes' | 'plans' | 'all') => {
+            let message = '';
+            if (store === 'athletes') message = 'تمامی ورزشکاران و سوابق آن‌ها حذف خواهند شد.';
+            if (store === 'plans') message = 'تمامی برنامه‌های تمرینی و غذایی حذف خواهند شد.';
+            if (store === 'all') message = 'تمامی اطلاعات برنامه شامل تنظیمات و پروفایل پاک خواهند شد (بازگشت به کارخانه).';
+
+            showConfirm('منطقه خطر!', message, async () => {
+                await resetDatabaseStore(store);
+                refreshData();
+                addToast('عملیات با موفقیت انجام شد', '', 'info');
+                if (store === 'all') window.location.reload();
+            }, 'danger');
+        };
+
+        return (
+            <div className="space-y-6 pb-20">
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">تنظیمات</h2>
+
+                {/* Settings Tabs */}
+                <div className="flex bg-gray-100 dark:bg-dark-800 p-1.5 rounded-2xl sticky top-0 z-10 overflow-x-auto no-scrollbar">
+                    {[
+                        { id: 'profile', icon: User, label: 'پروفایل و هویت' },
+                        { id: 'branding', icon: Palette, label: 'ظاهر و برندینگ' },
+                        { id: 'data', icon: Database, label: 'مدیریت داده‌ها' }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                        >
+                            <tab.icon size={18} /> {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <form onSubmit={handleSaveProfile} className="space-y-6">
+                    {/* Profile Tab */}
+                    {activeTab === 'profile' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-gray-900 dark:text-white"><Briefcase size={20} className="text-primary-500" /> اطلاعات شغلی</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div><Label>نام و نام خانوادگی</Label><Input name="name" defaultValue={trainerProfile?.name} placeholder="نام شما" /></div>
+                                    <div><Label>نام باشگاه / برند</Label><Input name="clubName" defaultValue={trainerProfile?.clubName} placeholder="نام باشگاه" /></div>
+                                    <div className="md:col-span-2"><Label>شعار تبلیغاتی</Label><Input name="slogan" defaultValue={trainerProfile?.slogan} placeholder="مثلا: سلامتی شما، اولویت ماست" /></div>
+                                    <div className="md:col-span-2">
+                                        <Label>بیوگرافی (Bio)</Label>
+                                        <textarea name="bio" defaultValue={trainerProfile?.bio} className="w-full min-h-[100px] p-4 rounded-2xl border border-gray-200 bg-gray-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800 dark:border-dark-700 dark:text-white" placeholder="توضیح کوتاهی درباره سوابق و تخصص خود بنویسید..."></textarea>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-gray-900 dark:text-white"><Phone size={20} className="text-green-500" /> راه‌های ارتباطی</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div><Label>شماره تماس</Label><Input name="phone" defaultValue={trainerProfile?.phone} dir="ltr" className="text-left" /></div>
+                                    <div><Label>اینستاگرام</Label><Input name="instagram" defaultValue={trainerProfile?.instagram} dir="ltr" className="text-left" placeholder="@username" /></div>
+                                    <div><Label>تلگرام</Label><Input name="telegram" defaultValue={trainerProfile?.telegram} dir="ltr" className="text-left" placeholder="@username" /></div>
+                                    <div><Label>وبسایت</Label><Input name="website" defaultValue={trainerProfile?.website} dir="ltr" className="text-left" placeholder="example.com" /></div>
+                                    <div className="md:col-span-2"><Label>ایمیل</Label><Input name="email" defaultValue={trainerProfile?.email} dir="ltr" className="text-left" /></div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-white"><Award size={20} className="text-amber-500" /> مدارک و گواهینامه‌ها</h3>
+                                <div className="flex gap-2 mb-4">
+                                    <Input value={newCert} onChange={(e) => setNewCert(e.target.value)} placeholder="مثلا: مدرک مربیگری درجه ۲" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCert(); } }} />
+                                    <Button type="button" onClick={addCert} className="shrink-0"><Plus size={20} /></Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {certs.map((cert, idx) => (
+                                        <div key={idx} className="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2">
+                                            {cert}
+                                            <button type="button" onClick={() => removeCert(cert)} className="hover:text-red-500"><X size={14} /></button>
+                                        </div>
+                                    ))}
+                                    {certs.length === 0 && <span className="text-sm text-gray-400">هنوز مدرکی اضافه نشده است.</span>}
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Branding Tab */}
+                    {activeTab === 'branding' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-white"><Palette size={20} className="text-purple-500" /> تم رنگی برنامه</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                    {Object.entries(COLOR_PALETTES).map(([key, palette]) => (
+                                        <div
+                                            key={key}
+                                            onClick={() => setAppColor(key)}
+                                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col items-center gap-3 ${appColor === key ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-100 dark:border-dark-700 hover:border-gray-200 dark:hover:border-dark-600'}`}
+                                        >
+                                            <div className="w-12 h-12 rounded-full shadow-sm flex items-center justify-center transition-transform" style={{ backgroundColor: `rgb(${palette.colors['500']})` }}>
+                                                {appColor === key && <Check className="text-white" size={24} />}
+                                            </div>
+                                            <span className={`text-xs font-bold ${appColor === key ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'}`}>{palette.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-white"><Eye size={20} className="text-blue-500" /> تنظیمات ظاهری</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-900 rounded-2xl border border-gray-100 dark:border-dark-700">
+                                        <div className="flex items-center gap-3">
+                                            {isDarkMode ? <Moon size={24} className="text-purple-500" /> : <Sun size={24} className="text-amber-500" />}
+                                            <div>
+                                                <div className="font-bold text-gray-800 dark:text-white">حالت شب (Dark Mode)</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">تغییر ظاهر برنامه به تیره</div>
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className={`w-14 h-8 rounded-full p-1 transition-colors relative ${isDarkMode ? 'bg-primary-600' : 'bg-gray-300'}`}>
+                                            <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${isDarkMode ? 'translate-x-[-24px]' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-900 rounded-2xl border border-gray-100 dark:border-dark-700">
+                                        <div className="flex items-center gap-3">
+                                            <Shield size={24} className="text-gray-600 dark:text-gray-400" />
+                                            <div>
+                                                <div className="font-bold text-gray-800 dark:text-white">حالت بولد (Bold Theme)</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">ضخیم کردن خطوط و فونت‌ها</div>
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={() => setIsBoldTheme(!isBoldTheme)} className={`w-14 h-8 rounded-full p-1 transition-colors relative ${isBoldTheme ? 'bg-primary-600' : 'bg-gray-300'}`}>
+                                            <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${isBoldTheme ? 'translate-x-[-24px]' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-gray-900 dark:text-white"><FileImage size={20} className="text-pink-500" /> تصاویر برند</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-gray-50 dark:bg-dark-900 p-4 rounded-2xl border border-gray-100 dark:border-dark-700 text-center">
+                                        <Label className="mb-3 block">لوگو (تصویر)</Label>
+                                        <div className="flex flex-col items-center gap-3">
+                                            {trainerProfile?.logoUrl ?
+                                                <img src={trainerProfile.logoUrl} className="w-24 h-24 rounded-2xl object-cover shadow-sm" alt="logo" /> :
+                                                <div className="w-24 h-24 rounded-2xl bg-gray-200 dark:bg-dark-700 flex items-center justify-center text-gray-400"><ImageIcon size={32} /></div>
+                                            }
+                                            <label className="cursor-pointer bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors">
+                                                انتخاب فایل
+                                                <input type="file" name="logo" accept="image/*" className="hidden" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-dark-900 p-4 rounded-2xl border border-gray-100 dark:border-dark-700 text-center">
+                                        <Label className="mb-3 block">امضای دیجیتال</Label>
+                                        <div className="flex flex-col items-center gap-3">
+                                            {trainerProfile?.signatureUrl ?
+                                                <img src={trainerProfile.signatureUrl} className="h-16 object-contain bg-white rounded-lg p-2" alt="sign" /> :
+                                                <div className="w-full h-16 rounded-lg bg-gray-200 dark:bg-dark-700 flex items-center justify-center text-gray-400 text-xs">بدون امضا</div>
+                                            }
+                                            <label className="cursor-pointer bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors">
+                                                انتخاب فایل
+                                                <input type="file" name="signature" accept="image/*" className="hidden" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Data Tab */}
+                    {activeTab === 'data' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <Card className="p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900 dark:text-white"><Database size={20} className="text-emerald-500" /> پشتیبان‌گیری</h3>
+                                <div className="space-y-3">
+                                    <Button type="button" variant="secondary" className="w-full justify-start h-14" onClick={async () => {
+                                        const data = await exportDatabase();
+                                        const blob = new Blob([data], { type: 'application/json' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a'); a.href = url; a.download = `morabi-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
+                                    }}>
+                                        <Download size={20} className="ml-2 text-emerald-600" /> دانلود فایل پشتیبان (Backup)
+                                    </Button>
+                                    <div className="relative">
+                                        <Button type="button" variant="secondary" className="w-full justify-start h-14" onClick={() => fileInputRef.current?.click()}>
+                                            <Upload size={20} className="ml-2 text-primary-600" /> بازگردانی اطلاعات (Restore)
+                                        </Button>
+                                        <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6 border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-900/10">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-red-700 dark:text-red-400"><AlertOctagon size={20} /> منطقه خطر</h3>
+                                <div className="space-y-3">
+                                    <Button type="button" variant="danger" className="w-full justify-start h-12 bg-white dark:bg-dark-800 border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleReset('athletes')}>
+                                        <Trash size={18} className="ml-2" /> حذف تمام ورزشکاران
+                                    </Button>
+                                    <Button type="button" variant="danger" className="w-full justify-start h-12 bg-white dark:bg-dark-800 border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleReset('plans')}>
+                                        <Trash size={18} className="ml-2" /> حذف تمام برنامه‌ها
+                                    </Button>
+                                    <div className="pt-2 border-t border-red-200 dark:border-red-900/30">
+                                        <Button type="button" variant="danger" className="w-full h-14 font-black" onClick={() => handleReset('all')}>
+                                            <RefreshCw size={20} className="ml-2" /> بازگشت به تنظیمات کارخانه (Reset App)
+                                        </Button>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Floating Save Button */}
+                    {(activeTab === 'profile' || activeTab === 'branding') && (
+                        <div className="sticky bottom-4 z-10 pt-4">
+                            <Button type="submit" className="w-full h-14 text-lg shadow-xl shadow-primary-200 dark:shadow-none bg-primary-600 hover:bg-primary-700">ذخیره تنظیمات</Button>
+                        </div>
+                    )}
+                </form>
+            </div>
+        );
+    };
+
+    if (currentView === 'plan-builder' && selectedAthlete) {
+        return (
+            <div className={`h-screen w-screen bg-white dark:bg-dark-900 ${isDarkMode ? 'dark' : ''}`} dir="rtl">
+                <PlanBuilder
+                    athlete={selectedAthlete}
+                    onSave={async (plan) => {
+                        await savePlan(plan);
+                        refreshData();
+                        addToast('برنامه با موفقیت ذخیره شد');
+                        setCurrentView('athletes');
+                    }}
+                    onCancel={() => setCurrentView('athletes')}
+                />
+                <ToastContainer toasts={toasts} removeToast={removeToast} />
+            </div>
+        );
+    }
+
+    if (currentView === 'nutrition-builder' && selectedAthlete) {
+        return (
+            <div className={`h-screen w-screen bg-white dark:bg-dark-900 ${isDarkMode ? 'dark' : ''}`} dir="rtl">
+                <NutritionBuilder
+                    athlete={selectedAthlete}
+                    onSave={async (plan) => {
+                        await saveNutritionPlan(plan);
+                        refreshData();
+                        addToast('رژیم غذایی با موفقیت ذخیره شد');
+                        setCurrentView('athletes');
+                    }}
+                    onCancel={() => setCurrentView('athletes')}
+                />
+                <ToastContainer toasts={toasts} removeToast={removeToast} />
+            </div>
+        );
+    }
+
+    return (
+        <div className={`flex h-screen w-screen overflow-hidden bg-gray-100 dark:bg-dark-900 font-sans ${isDarkMode ? 'dark' : ''}`} dir="rtl">
+            {/* Toast & Dialog Container */}
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                variant={confirmState.variant}
+            />
+
+            {/* Sidebar */}
+            <aside className="hidden md:flex w-72 bg-white dark:bg-dark-800 border-l border-gray-200 dark:border-dark-700 flex-col justify-between shadow-sm z-20 transition-colors duration-300">
+                <div>
+                    <div className="p-8 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-200 dark:shadow-none transform hover:scale-105 transition-transform cursor-default">M</div>
+                        <div>
+                            <div className="font-black text-2xl text-gray-800 dark:text-white tracking-tight">مربی پرو</div>
+                            <div className="text-xs text-primary-600 dark:text-primary-400 font-bold bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded-md w-fit mt-1">نسخه ۱.۱</div>
+                        </div>
+                    </div>
+                    <nav className="px-5 space-y-2">
+                        {[
+                            { id: 'dashboard', icon: LayoutDashboard, label: 'داشبورد' },
+                            { id: 'athletes', icon: Users, label: 'ورزشکاران' },
+                            { id: 'exercises', icon: Dumbbell, label: 'تمرینات' },
+                            { id: 'tools', icon: Calculator, label: 'ابزارها' },
+                            { id: 'settings', icon: SettingsIcon, label: 'تنظیمات' },
+                        ].map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => setCurrentView(item.id as View)}
+                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group ${currentView === item.id ? 'bg-primary-600 text-white font-bold shadow-lg shadow-primary-200 dark:shadow-none' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-dark-700 hover:text-gray-900 dark:hover:text-white font-medium'}`}
+                            >
+                                <item.icon size={22} className={currentView === item.id ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-white'} />
+                                {item.label}
+                                {currentView === item.id && <div className="mr-auto w-1.5 h-1.5 bg-white rounded-full" />}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+                <div className="p-5">
+                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-dark-700 dark:to-dark-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group cursor-default">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-white/20 transition-all"></div>
+                        <p className="text-xs text-gray-400 mb-2 font-medium">وضعیت اشتراک</p>
+                        <p className="font-black text-lg mb-1">نسخه حرفه‌ای</p>
+                        <p className="text-xs text-gray-400">نامحدود و رایگان</p>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#f8fafc] dark:bg-dark-900 transition-colors duration-300">
+                {/* Mobile Header (Only visible on small screens) */}
+                <div className="md:hidden bg-white/80 dark:bg-dark-800/80 backdrop-blur-md p-4 flex justify-between items-center border-b border-gray-100 dark:border-dark-700 z-20 sticky top-0">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
+                        <div className="font-black text-lg text-gray-900 dark:text-white">مربی پرو</div>
+                    </div>
+                    <button onClick={() => setCurrentView('settings')} className="p-2 bg-gray-50 dark:bg-dark-700 rounded-xl"><SettingsIcon size={20} className="text-gray-600 dark:text-gray-300" /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar scroll-smooth">
+                    <div className="max-w-7xl mx-auto">
+                        {currentView === 'dashboard' && <DashboardView />}
+                        {currentView === 'athletes' && (selectedAthlete ? <AthleteDetailView /> : <AthletesView />)}
+                        {currentView === 'exercises' && <ExercisesView />}
+                        {currentView === 'tools' && <ToolsView />}
+                        {currentView === 'settings' && <SettingsView />}
+                    </div>
+                </div>
+
+                {/* Bottom Navigation (Mobile) */}
+                <div className="md:hidden bg-white/90 dark:bg-dark-800/90 backdrop-blur-lg border-t border-gray-100 dark:border-dark-700 flex justify-around p-3 pb-safe z-30 fixed bottom-0 w-full shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-none">
+                    {[
+                        { id: 'dashboard', icon: LayoutDashboard },
+                        { id: 'athletes', icon: Users },
+                        { id: 'exercises', icon: Dumbbell },
+                        { id: 'tools', icon: Calculator },
+                    ].map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => { setCurrentView(item.id as View); setSelectedAthlete(null); }}
+                            className={`p-3 rounded-2xl transition-all ${currentView === item.id ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 scale-110' : 'text-gray-400 dark:text-gray-500 active:scale-95'}`}
+                        >
+                            <item.icon size={24} strokeWidth={currentView === item.id ? 2.5 : 2} />
+                        </button>
+                    ))}
+                </div>
+            </main>
+
+            {/* Modals */}
+            <Modal isOpen={isAthleteModalOpen} onClose={() => { setIsAthleteModalOpen(false); setEditingAthlete(null); }} title={editingAthlete ? "ویرایش ورزشکار" : "افزودن ورزشکار"}>
+                <form key={editingAthlete ? editingAthlete.id : 'new'} onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.target as HTMLFormElement;
+                    const data = new FormData(form);
+
+                    const weightVal = parseFloat(data.get('weight') as string);
+                    let measurements = editingAthlete ? [...editingAthlete.measurements] : [];
+                    if (measurements.length === 0) { measurements.push({ date: new Date().toISOString(), weight: weightVal }); }
+                    else { const last = measurements[measurements.length - 1]; if (last.weight !== weightVal) { measurements.push({ date: new Date().toISOString(), weight: weightVal }); } }
+
+                    const athleteData: Athlete = {
+                        id: editingAthlete ? editingAthlete.id : crypto.randomUUID(),
+                        fullName: data.get('fullName') as string,
+                        phone: data.get('phone') as string,
+                        age: parseInt(data.get('age') as string),
+                        height: parseInt(data.get('height') as string),
+                        gender: data.get('gender') as 'Male' | 'Female',
+                        joinDate: editingAthlete ? editingAthlete.joinDate : new Date().toISOString(),
+                        measurements: measurements,
+                        currentGoal: data.get('goal') as string,
+                        status: (data.get('status') as any) || 'active'
+                    };
+                    await saveAthlete(athleteData);
+                    if (selectedAthlete && selectedAthlete.id === athleteData.id) { setSelectedAthlete(athleteData); }
+                    refreshData(); setIsAthleteModalOpen(false); setEditingAthlete(null);
+                    addToast(editingAthlete ? 'تغییرات ذخیره شد' : 'ورزشکار جدید ثبت شد');
+                }} className="space-y-4">
+                    <div><Label>نام کامل</Label><Input name="fullName" defaultValue={editingAthlete?.fullName} required className="font-bold" autoFocus /></div>
+                    <div><Label>شماره تماس</Label><Input name="phone" defaultValue={editingAthlete?.phone} className="font-sans" /></div>
+                    <div className="grid grid-cols-2 gap-4"><div><Label>سن</Label><Input name="age" type="number" defaultValue={editingAthlete?.age} required className="text-center" /></div><div><Label>قد (cm)</Label><Input name="height" type="number" defaultValue={editingAthlete?.height} required className="text-center" /></div></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><Label>جنسیت</Label><Select name="gender" defaultValue={editingAthlete?.gender || "Male"}><option value="Male">آقا</option><option value="Female">خانم</option></Select></div>
+                        <div><Label>وزن (kg)</Label><Input name="weight" type="number" step="0.1" defaultValue={editingAthlete ? editingAthlete.measurements[editingAthlete.measurements.length - 1]?.weight : ''} required className="text-center" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><Label>هدف تمرینی</Label><Input name="goal" defaultValue={editingAthlete?.currentGoal} placeholder="مثلا: کاهش وزن" /></div>
+                        <div><Label>وضعیت</Label><Select name="status" defaultValue={editingAthlete?.status || "active"}><option value="active">فعال</option><option value="archived">بایگانی شده</option></Select></div>
+                    </div>
+                    <Button type="submit" className="w-full mt-4 h-12 text-base">{editingAthlete ? 'ذخیره تغییرات' : 'ثبت ورزشکار'}</Button>
+                </form>
+            </Modal>
+
+            {/* Export Configuration Modal */}
+            <Modal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} title="تنظیمات خروجی برنامه">
+                <div className="space-y-6">
+                    <div><Label className="mb-3 block">قالب بصری</Label><div className="grid grid-cols-2 gap-3">{[{ id: 'modern', name: 'مدرن (پیش‌فرض)', icon: Layout }, { id: 'minimal', name: 'مینیمال (ساده)', icon: FileText }, { id: 'dark', name: 'دارک مود', icon: Moon }, { id: 'bold', name: 'رسمی و اداری', icon: Shield }].map(theme => (<div key={theme.id} onClick={() => setExportConfig({ ...exportConfig, theme: theme.id as any })} className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${exportConfig.theme === theme.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm' : 'border-gray-100 dark:border-dark-700 hover:border-gray-200 dark:hover:border-dark-600 hover:bg-gray-50 dark:hover:bg-dark-700'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${exportConfig.theme === theme.id ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-gray-300'}`}><theme.icon size={18} /></div><span className={`text-sm font-bold ${exportConfig.theme === theme.id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{theme.name}</span></div>))}</div></div>
+                    <div><Label className="mb-3 block">رنگ اصلی</Label><div className="flex gap-4">{['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#111827'].map(color => (<button key={color} onClick={() => setExportConfig({ ...exportConfig, primaryColor: color })} className={`w-12 h-12 rounded-full shadow-sm transition-all hover:scale-110 flex items-center justify-center ${exportConfig.primaryColor === color ? 'ring-4 ring-offset-2 ring-gray-200 dark:ring-dark-700 scale-110' : ''}`} style={{ backgroundColor: color }}>{exportConfig.primaryColor === color && <Check className="text-white" size={20} />}</button>))}</div></div>
+                    <div><Label className="mb-3 block">پس‌زمینه (Background)</Label><div className="grid grid-cols-3 sm:grid-cols-5 gap-3">{[{ id: 'none', label: 'ساده', icon: Ban }, { id: 'dots', label: 'نقطه‌ای', icon: Circle }, { id: 'grid', label: 'شطرنجی', icon: Grid }, { id: 'waves', label: 'موج', icon: Waves }, { id: 'custom', label: 'تصویر', icon: ImageIcon },].map(pat => (<button key={pat.id} onClick={() => setExportConfig({ ...exportConfig, backgroundPattern: pat.id as any })} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${exportConfig.backgroundPattern === pat.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'border-gray-100 dark:border-dark-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-dark-700'}`}><pat.icon size={20} /><span className="text-xs font-bold">{pat.label}</span></button>))}</div>{exportConfig.backgroundPattern === 'custom' && (<div className="mt-4 animate-fade-in"><Label className="mb-2 block text-xs">آپلود تصویر پس‌زمینه</Label><div className="relative group w-full h-24 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-2xl flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">{exportConfig.customBackgroundImage ? (<img src={exportConfig.customBackgroundImage} alt="Background Preview" className="w-full h-full object-cover opacity-50" />) : (<div className="flex flex-col items-center text-gray-400"><Upload size={24} /><span className="text-xs mt-1 font-bold">انتخاب فایل</span></div>)}<input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={async (e) => { if (e.target.files && e.target.files[0]) { try { const compressed = await compressImage(e.target.files[0]); setExportConfig({ ...exportConfig, customBackgroundImage: compressed }); } catch (err) { console.error(err); } } }} />{exportConfig.customBackgroundImage && (<div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">تغییر تصویر</div>)}</div></div>)}</div>
+                    <div className="bg-gray-50 dark:bg-dark-800 p-4 rounded-2xl border border-gray-100 dark:border-dark-700"><Label className="mb-3 block text-gray-900 dark:text-white">جزئیات نمایش</Label><div className="space-y-1"><label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white dark:hover:bg-dark-700 rounded-xl transition-colors"><input type="checkbox" checked={exportConfig.showTrainerInfo} onChange={e => setExportConfig({ ...exportConfig, showTrainerInfo: e.target.checked })} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" /><span className="text-sm font-medium text-gray-700 dark:text-gray-300">اطلاعات تماس مربی</span></label><label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white dark:hover:bg-dark-700 rounded-xl transition-colors"><input type="checkbox" checked={exportConfig.showSlogan} onChange={e => setExportConfig({ ...exportConfig, showSlogan: e.target.checked })} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" /><span className="text-sm font-medium text-gray-700 dark:text-gray-300">شعار باشگاه</span></label><label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white dark:hover:bg-dark-700 rounded-xl transition-colors"><input type="checkbox" checked={exportConfig.showSignature} onChange={e => setExportConfig({ ...exportConfig, showSignature: e.target.checked })} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" /><span className="text-sm font-medium text-gray-700 dark:text-gray-300">امضای دیجیتال</span></label><label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white dark:hover:bg-dark-700 rounded-xl transition-colors"><input type="checkbox" checked={exportConfig.showQuote} onChange={e => setExportConfig({ ...exportConfig, showQuote: e.target.checked })} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" /><span className="text-sm font-medium text-gray-700 dark:text-gray-300">جمله انگیزشی</span></label></div></div>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-dark-700"><Button onClick={() => { if (planToExport && selectedAthlete) { downloadPlanAsHtml(planToExport, selectedAthlete, trainerProfile, exportConfig); setIsExportModalOpen(false); } else if (dietToExport && selectedAthlete) { downloadDietAsHtml(dietToExport, selectedAthlete, trainerProfile, exportConfig); setIsExportModalOpen(false); } }} className="bg-gray-800 dark:bg-white dark:text-gray-900 hover:bg-gray-900 dark:hover:bg-gray-200 h-14 rounded-2xl"><FileCode size={20} className="ml-2" /> دانلود HTML</Button><Button onClick={() => { if (planToExport && selectedAthlete) { downloadPlanAsImage(planToExport, selectedAthlete, trainerProfile, exportConfig, () => setIsExporting(true), () => { setIsExporting(false); setIsExportModalOpen(false); }); } else if (dietToExport && selectedAthlete) { downloadDietAsImage(dietToExport, selectedAthlete, trainerProfile, exportConfig, () => setIsExporting(true), () => { setIsExporting(false); setIsExportModalOpen(false); }); } }} disabled={isExporting} className="h-14 rounded-2xl">{isExporting ? <RefreshCw className="animate-spin ml-2" size={20} /> : <FileImage size={20} className="ml-2" />} دانلود تصویر (JPG)</Button></div>
+                </div>
+            </Modal>
+        </div>
+    );
+}
+
+const getPlanStyles = (config: ExportConfig) => {
+    // Determine Base Colors based on Theme
+    let bg = '#f8fafc';
+    let surface = '#ffffff';
+    let textMain = '#0f172a';
+    let textMuted = '#64748b';
+    let border = '#e2e8f0';
+    let fontFamily = "'Vazirmatn', sans-serif";
+
+    // Theme Overrides
+    if (config.theme === 'dark') {
+        bg = '#0f172a';
+        surface = '#1e293b';
+        textMain = '#f8fafc';
+        textMuted = '#94a3b8';
+        border = '#334155';
+    } else if (config.theme === 'minimal') {
+        bg = '#ffffff';
+        border = '#f1f5f9';
+    }
+
+    // Background Pattern Logic
+    let bgPatternCSS = '';
+    const encodedBorder = border.replace('#', '%23');
+
+    if (config.backgroundPattern === 'dots') {
+        bgPatternCSS = `background-image: radial-gradient(${border} 1px, transparent 1px); background-size: 20px 20px;`;
+    } else if (config.backgroundPattern === 'grid') {
+        bgPatternCSS = `background-image: linear-gradient(${border} 1px, transparent 1px), linear-gradient(90deg, ${border} 1px, transparent 1px); background-size: 20px 20px;`;
+    } else if (config.backgroundPattern === 'waves') {
+        // Simple scale/wave pattern using radial gradients
+        bgPatternCSS = `
+            background-image: url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172C9.763 6.172 9.763 0 19.526 0S29.289 6.172 29.289 6.172 29.289 12 39.052 12' stroke='${encodedBorder}' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+            background-size: 40px 12px;
+        `;
+    } else if (config.backgroundPattern === 'custom' && config.customBackgroundImage) {
+        bgPatternCSS = `background-image: url('${config.customBackgroundImage}'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed;`;
+    }
+
+    return `
+    :root {
+        --primary: ${config.primaryColor};
+        --primary-light: ${config.theme === 'dark' ? `${config.primaryColor}33` : `${config.primaryColor}1a`};
+        --surface: ${surface};
+        --bg: ${bg};
+        --border: ${border};
+        --text-main: ${textMain};
+        --text-muted: ${textMuted};
+    }
+    
+    * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    body {
+        font-family: ${fontFamily};
+        background-color: var(--bg);
+        color: var(--text-main);
+        margin: 0;
+        padding: 40px;
+        line-height: 1.5;
+        direction: rtl;
+        ${bgPatternCSS}
+    }
+
+    .page-container {
+        max-width: 210mm;
+        margin: 0 auto;
+        background: var(--surface);
+        border-radius: ${config.theme === 'modern' ? '24px' : '0'};
+        box-shadow: ${config.theme === 'modern' ? '0 10px 40px -10px rgba(0,0,0,0.1)' : 'none'};
+        padding: 48px;
+        overflow: hidden;
+        position: relative;
+        min-height: 297mm;
+        display: flex;
+        flex-direction: column;
+        border: ${config.theme === 'bold' ? '4px solid var(--text-main)' : 'none'};
+    }
+    
+    /* Header Section */
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: ${config.theme === 'minimal' ? 'none' : '2px solid var(--border)'};
+    }
+    
+    .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+    }
+    
+    .brand h1 {
+        font-size: 28px;
+        font-weight: 900;
+        color: var(--primary);
+        margin: 0;
+        letter-spacing: -0.5px;
+        text-transform: uppercase;
+    }
+
+    .brand-slogan {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    
+    .brand-meta {
+        font-size: 13px;
+        color: var(--text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 8px;
+    }
+
+    .contact-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .brand-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: ${config.theme === 'modern' ? '16px' : '0'};
+        object-fit: cover;
+        margin-right: 24px;
+        border: ${config.theme === 'bold' ? '2px solid var(--text-main)' : 'none'};
+    }
+    
+    .app-badge {
+        background: var(--text-main);
+        color: var(--surface);
+        padding: 4px 12px;
+        border-radius: 99px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    /* Athlete Info Grid */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 40px;
+    }
+    
+    .info-card {
+        background: var(--primary-light);
+        padding: 16px 20px;
+        border-radius: ${config.theme === 'modern' ? '20px' : '4px'};
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border: ${config.theme === 'minimal' ? 'none' : '1px solid transparent'};
+    }
+    
+    .info-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-value {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    /* Days List */
+    .days-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        flex-grow: 1;
+    }
+
+    .day-card {
+        border: ${config.theme === 'minimal' ? 'none' : '1px solid var(--border)'};
+        border-bottom: ${config.theme === 'minimal' ? '1px solid var(--border)' : '1px solid var(--border)'};
+        border-radius: ${config.theme === 'modern' ? '20px' : '0'};
+        background: var(--surface);
+        break-inside: avoid;
+        overflow: hidden;
+        box-shadow: ${config.theme === 'modern' ? '0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'none'};
+        margin-bottom: ${config.theme === 'minimal' ? '20px' : '0'};
+    }
+    
+    .day-card.rest {
+        background: ${config.theme === 'dark' ? '#451a03' : '#fffbeb'};
+        border-color: #fcd34d;
+        border-style: dashed;
+        border-width: 2px;
+    }
+
+    .day-header {
+        background: ${config.theme === 'minimal' ? 'transparent' : 'var(--bg)'};
+        padding: 14px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: ${config.theme === 'modern' ? '1px solid var(--border)' : 'none'};
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .day-card.rest .day-header {
+        background: transparent;
+        border-bottom: none;
+        cursor: default;
+    }
+
+    .day-title {
+        font-weight: 800;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-main);
+    }
+
+    .badge-count {
+        background: var(--text-main);
+        color: var(--bg);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    .rest-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        color: #b45309;
+        gap: 8px;
+    }
+    
+    .chevron-icon {
+        transition: transform 0.3s ease;
+        transform: rotate(180deg); /* Default expanded state points up */
+    }
+
+    .day-body {
+        transition: all 0.3s ease;
+    }
+
+    /* Exercises Table Look */
+    .exercise-row {
+        display: grid;
+        grid-template-columns: 3fr 1fr 1fr 1fr;
+        padding: 12px 24px;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .exercise-row:last-child {
+        border-bottom: none;
+    }
+    
+    .ex-main {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .ex-name {
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--text-main);
+    }
+    
+    .ex-meta-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .stat-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: var(--bg);
+        padding: 6px 4px;
+        border-radius: 8px;
+    }
+    
+    .stat-label {
+        font-size: 9px;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+    
+    .stat-value {
+        font-weight: 800;
+        font-size: 13px;
+        color: var(--text-main);
+    }
+
+    .ex-note {
+        grid-column: 1 / -1;
+        margin-top: 8px;
+        background: ${config.theme === 'dark' ? '#3f3f46' : '#fffbeb'};
+        color: ${config.theme === 'dark' ? '#fcd34d' : '#92400e'};
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Diet Specific Styles */
+    .meal-row {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+    }
+    .meal-row:last-child { border-bottom: none; }
+    
+    .meal-header {
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--primary);
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .food-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px dashed var(--border);
+    }
+    .food-item:last-child { border-bottom: none; }
+    
+    .food-name { font-weight: 600; font-size: 13px; color: var(--text-main); }
+    .food-meta { font-size: 11px; color: var(--text-muted); }
+    .food-macros { display:flex; gap:8px; font-size:10px; font-weight:bold; }
+
+    .footer {
+        margin-top: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-top: 24px;
+        border-top: 2px solid var(--border);
+    }
+    
+    .signature-box {
+        text-align: center;
+        width: 150px;
+    }
+    
+    .signature-img {
+        max-width: 100%;
+        max-height: 60px;
+        object-fit: contain;
+        filter: ${config.theme === 'dark' ? 'invert(1)' : 'none'};
+    }
+    
+    .signature-line {
+        border-top: 1px solid var(--text-main);
+        margin-top: 4px;
+        padding-top: 4px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .footer-note {
+        font-size: 11px;
+        color: var(--text-muted);
+        max-width: 60%;
+    }
+    
+    .quote-box {
+        margin-top: 20px;
+        padding: 15px;
+        border-right: 4px solid var(--primary);
+        background: var(--bg);
+        font-style: italic;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    @media print {
+        body { padding: 0; background: white; }
+        .page-container { box-shadow: none; padding: 20px; width: 100%; max-width: none; min-height: 0; }
+        .chevron-icon { display: none; }
+    }
+`;
+}
+
+const getPlanBodyContent = (plan: WorkoutPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig) => {
+    // Svg Icons
+    const icons = {
+        dumbbell: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M6 20v-2.5"/><path d="M9 20v-2.5"/><path d="M15 20v-2.5"/><path d="M18 20v-2.5"/><path d="M6 6.5V4"/><path d="M9 6.5V4"/><path d="M15 6.5V4"/><path d="M18 6.5V4"/></svg>`,
+        coffee: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>`,
+        info: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+        insta: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>`,
+        send: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+        mail: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+        chevron: `<svg class="chevron-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`
+    };
+
+    const quotes = [
+        "درد امروز، قدرت فرداست.",
+        "هیچ تلاشی بی‌نتیجه نمی‌ماند.",
+        "بدن شما تنها جایی است که باید در آن زندگی کنید.",
+        "موفقیت تکرار لجوجانه کارهای ساده است."
+    ];
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+
+    return `
+        <div class="page-container">
+            <div class="header">
+                <div class="brand">
+                    <h1>${trainer?.name || 'برنامه تمرینی'}</h1>
+                    ${trainer?.clubName ? `<span style="font-weight:700; opacity:0.7;">${trainer.clubName}</span>` : ''}
+                    ${(config.showSlogan && trainer?.slogan) ? `<span class="brand-slogan">${trainer.slogan}</span>` : ''}
+                    
+                    ${config.showTrainerInfo ? `
+                    <div class="brand-meta">
+                        ${trainer?.instagram ? `<div class="contact-item">${icons.insta} <span>${trainer.instagram}</span></div>` : ''}
+                        ${trainer?.telegram ? `<div class="contact-item">${icons.send} <span>${trainer.telegram}</span></div>` : ''}
+                        ${trainer?.email ? `<div class="contact-item">${icons.mail} <span>${trainer.email}</span></div>` : ''}
+                    </div>` : ''}
+                </div>
+                ${trainer?.logoUrl
+            ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
+            : `<div class="app-badge">Morabi Pro</div>`
+        }
+            </div>
+
+            <div class="info-grid">
+                <div class="info-card">
+                    <span class="info-label">ورزشکار</span>
+                    <span class="info-value">${athlete.fullName}</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">عنوان برنامه</span>
+                    <span class="info-value">${plan.name}</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">تاریخ صدور</span>
+                    <span class="info-value">${new Date().toLocaleDateString('fa-IR')}</span>
+                </div>
+            </div>
+
+            <div class="days-list">
+                ${plan.days
+            .filter(d => d.isRestDay || d.exercises.length > 0)
+            .map(day => `
+                    <div class="day-card ${day.isRestDay ? 'rest' : ''}">
+                        ${day.isRestDay ? `
+                            <div class="rest-content">
+                                ${icons.coffee}
+                                <div style="font-size: 16px; font-weight: bold;">${day.dayName}</div>
+                                <div>روز استراحت و ریکاوری</div>
+                            </div>
+                        ` : `
+                            <div class="day-header" onclick="toggleDay(this)">
+                                <div class="day-title">
+                                    ${icons.dumbbell}
+                                    ${day.dayName}
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <div class="badge-count">${day.exercises.length} حرکت</div>
+                                    ${icons.chevron}
+                                </div>
+                            </div>
+                            <div class="day-body">
+                                ${day.exercises.length > 0 ? day.exercises.map(ex => `
+                                    <div class="exercise-row">
+                                        <div class="ex-main">
+                                            <div class="ex-name">${ex.exerciseName}</div>
+                                        </div>
+                                        
+                                        <div class="stat-pill">
+                                            <span class="stat-label">ست</span>
+                                            <span class="stat-value">${ex.sets}</span>
+                                        </div>
+                                        <div class="stat-pill">
+                                            <span class="stat-label">تکرار</span>
+                                            <span class="stat-value">${ex.reps}</span>
+                                        </div>
+                                        <div class="stat-pill">
+                                            <span class="stat-label">استراحت</span>
+                                            <span class="stat-value" dir="ltr">${ex.rest || '-'}</span>
+                                        </div>
+
+                                        ${ex.notes ? `
+                                            <div class="ex-note">
+                                                ${icons.info}
+                                                ${ex.notes}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('') : '<div style="padding:24px;text-align:center;opacity:0.5">بدون تمرین</div>'}
+                            </div>
+                        `}
+                    </div>
+                `).join('')}
+            </div>
+
+            ${config.showQuote ? `<div class="quote-box">"${randomQuote}"</div>` : ''}
+
+            <div class="footer">
+                <div class="footer-note">
+                    ${(config.showSlogan && trainer?.slogan) ? `${trainer.slogan}` : 'طراحی شده با اپلیکیشن مربی پرو'}
+                    <br/>
+                    <span style="opacity:0.6; font-size:10px;">برای مشاهده نتایج بهتر، برنامه را دقیق اجرا کنید.</span>
+                </div>
+                ${(config.showSignature && trainer?.signatureUrl) ? `
+                    <div class="signature-box">
+                        <img src="${trainer.signatureUrl}" class="signature-img" alt="امضا" />
+                        <div class="signature-line">امضای مربی</div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Diet Export Body
+const getDietBodyContent = (plan: NutritionPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig) => {
+    // Svg Icons
+    const icons = {
+        food: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2v4"/><path d="M21 2v4"/><path d="M21 13a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V2"/><path d="M11 2v4"/></svg>`,
+        info: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+        insta: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>`,
+        send: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+        mail: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+        chevron: `<svg class="chevron-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`
+    };
+
+    return `
+        <div class="page-container">
+            <div class="header">
+                <div class="brand">
+                    <h1>${trainer?.name || 'رژیم غذایی'}</h1>
+                    ${trainer?.clubName ? `<span style="font-weight:700; opacity:0.7;">${trainer.clubName}</span>` : ''}
+                    ${(config.showSlogan && trainer?.slogan) ? `<span class="brand-slogan">${trainer.slogan}</span>` : ''}
+                    
+                    ${config.showTrainerInfo ? `
+                    <div class="brand-meta">
+                        ${trainer?.instagram ? `<div class="contact-item">${icons.insta} <span>${trainer.instagram}</span></div>` : ''}
+                        ${trainer?.telegram ? `<div class="contact-item">${icons.send} <span>${trainer.telegram}</span></div>` : ''}
+                        ${trainer?.email ? `<div class="contact-item">${icons.mail} <span>${trainer.email}</span></div>` : ''}
+                    </div>` : ''}
+                </div>
+                ${trainer?.logoUrl
+            ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
+            : `<div class="app-badge">Morabi Pro</div>`
+        }
+            </div>
+
+            <div class="info-grid">
+                <div class="info-card">
+                    <span class="info-label">ورزشکار</span>
+                    <span class="info-value">${athlete.fullName}</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">عنوان رژیم</span>
+                    <span class="info-value">${plan.name}</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">تاریخ صدور</span>
+                    <span class="info-value">${new Date().toLocaleDateString('fa-IR')}</span>
+                </div>
+            </div>
+
+            <div class="days-list">
+                ${plan.days.map(day => {
+            let cals = 0, prot = 0;
+            day.meals.forEach(m => m.foods.forEach(f => { cals += f.calories; prot += f.protein; }));
+            return `
+                    <div class="day-card">
+                        <div class="day-header" onclick="toggleDay(this)">
+                            <div class="day-title">
+                                ${icons.food}
+                                ${day.dayName}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="badge-count">${Math.round(cals)} کالری • ${Math.round(prot)}g پروتئین</div>
+                                ${icons.chevron}
+                            </div>
+                        </div>
+                        <div class="day-body">
+                            ${day.meals.map(meal => `
+                                <div class="meal-row">
+                                    <div class="meal-header">${meal.name}</div>
+                                    ${meal.foods.length === 0 ? '<div style="opacity:0.5; font-size:12px">خالی</div>' :
+                    meal.foods.map(food => `
+                                        <div class="food-item">
+                                            <div style="flex:1">
+                                                <div class="food-name">${food.name} <span class="food-meta">(${food.amount})</span></div>
+                                            </div>
+                                            <div class="food-macros">
+                                                <span>${food.calories}cal</span>
+                                                <span style="color:var(--text-muted)">|</span>
+                                                <span>P:${food.protein}</span>
+                                                <span>C:${food.carbs}</span>
+                                                <span>F:${food.fat}</span>
+                                            </div>
+                                        </div>
+                                      `).join('')}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>
+
+            <div class="footer">
+                <div class="footer-note">
+                    ${(config.showSlogan && trainer?.slogan) ? `${trainer.slogan}` : 'طراحی شده با اپلیکیشن مربی پرو'}
+                    <br/>
+                    <span style="opacity:0.6; font-size:10px;">لطفا رژیم را دقیق رعایت کنید و آب کافی بنوشید.</span>
+                </div>
+                ${(config.showSignature && trainer?.signatureUrl) ? `
+                    <div class="signature-box">
+                        <img src="${trainer.signatureUrl}" class="signature-img" alt="امضا" />
+                        <div class="signature-line">امضای مربی</div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function downloadPlanAsHtml(plan: WorkoutPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig) {
+    const styles = getPlanStyles(config);
+    const bodyContent = getPlanBodyContent(plan, athlete, trainer, config);
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>برنامه تمرینی ${athlete.fullName}</title>
+        <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+        <style>${styles}</style>
+    </head>
+    <body>
+        ${bodyContent}
+        <script>
+        function toggleDay(header) {
+            const body = header.nextElementSibling;
+            const icon = header.querySelector('.chevron-icon');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                if(icon) icon.style.transform = 'rotate(180deg)';
+            } else {
+                body.style.display = 'none';
+                if(icon) icon.style.transform = 'rotate(0deg)';
+            }
+        }
+        </script>
+        <script>window.print();</script>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `plan-${athlete.fullName.replace(/\s+/g, '-')}.html`;
+    link.click();
+}
+
+async function downloadPlanAsImage(plan: WorkoutPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig, onStart: () => void, onEnd: () => void) {
+    onStart();
+    try {
+        const styles = getPlanStyles(config);
+        const bodyContent = getPlanBodyContent(plan, athlete, trainer, config);
+
+        // Create a temporary container
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '794px'; // A4 approximate width at 96 DPI
+        container.style.direction = 'rtl';
+        container.innerHTML = `<style>${styles}</style>${bodyContent}`;
+        document.body.appendChild(container);
+
+        // Wait a tick for styles
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const canvas = await html2canvas(container, {
+            scale: 2, // Retina quality
+            useCORS: true, // For images
+            backgroundColor: config.theme === 'dark' ? '#0f172a' : '#f8fafc',
+            logging: false
+        });
+
+        const link = document.createElement('a');
+        link.download = `plan-${athlete.fullName.replace(/\s+/g, '-')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        document.body.removeChild(container);
+    } catch (err) {
+        console.error('Image export failed:', err);
+        alert('خطا در تولید تصویر. لطفا دوباره تلاش کنید.'); // Keep simple alert for unexpected errors, or use callback if possible, but here we are outside component scope for toast easily without refactoring.
+    } finally {
+        onEnd();
+    }
+}
+
+// Diet Export Functions
+function downloadDietAsHtml(plan: NutritionPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig) {
+    const styles = getPlanStyles(config);
+    const bodyContent = getDietBodyContent(plan, athlete, trainer, config);
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>رژیم غذایی ${athlete.fullName}</title>
+        <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+        <style>${styles}</style>
+    </head>
+    <body>
+        ${bodyContent}
+        <script>
+        function toggleDay(header) {
+            const body = header.nextElementSibling;
+            const icon = header.querySelector('.chevron-icon');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                if(icon) icon.style.transform = 'rotate(180deg)';
+            } else {
+                body.style.display = 'none';
+                if(icon) icon.style.transform = 'rotate(0deg)';
+            }
+        }
+        </script>
+        <script>window.print();</script>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `diet-${athlete.fullName.replace(/\s+/g, '-')}.html`;
+    link.click();
+}
+
+async function downloadDietAsImage(plan: NutritionPlan, athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig, onStart: () => void, onEnd: () => void) {
+    onStart();
+    try {
+        const styles = getPlanStyles(config);
+        const bodyContent = getDietBodyContent(plan, athlete, trainer, config);
+
+        // Create a temporary container
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '794px';
+        container.style.direction = 'rtl';
+        container.innerHTML = `<style>${styles}</style>${bodyContent}`;
+        document.body.appendChild(container);
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const canvas = await html2canvas(container, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: config.theme === 'dark' ? '#0f172a' : '#f8fafc',
+            logging: false
+        });
+
+        const link = document.createElement('a');
+        link.download = `diet-${athlete.fullName.replace(/\s+/g, '-')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        document.body.removeChild(container);
+    } catch (err) {
+        console.error('Image export failed:', err);
+    } finally {
+        onEnd();
+    }
+}
+
+export default App;
