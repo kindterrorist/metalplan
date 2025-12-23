@@ -5,6 +5,7 @@ import {
   WorkoutPlan,
   TrainerProfile,
   NutritionPlan,
+  FoodLibraryItem,
 } from "../types";
 
 // Declare electron API (from preload)
@@ -30,6 +31,12 @@ declare global {
       getNutritionPlans: () => Promise<NutritionPlan[]>;
       saveNutritionPlan: (plan: NutritionPlan) => Promise<NutritionPlan>;
       deleteNutritionPlan: (id: string) => Promise<void>;
+
+      // Food Library
+      getFoodLibraryItems: () => Promise<FoodLibraryItem[]>;
+      saveFoodLibraryItem: (item: FoodLibraryItem) => Promise<FoodLibraryItem>;
+      deleteFoodLibraryItem: (id: string) => Promise<void>;
+      searchFoodLibrary: (query: string) => Promise<FoodLibraryItem[]>;
 
       // Trainer Profile
       getTrainerProfile: () => Promise<TrainerProfile | null>;
@@ -166,6 +173,34 @@ export const saveTrainerProfile = async (
   if (isElectron()) return window.electron.saveTrainerProfile(profile);
   localStorage.setItem("trainerProfile", JSON.stringify(profile));
   return Promise.resolve(profile);
+};
+// Food Library functions
+export const getFoodLibraryItems = async (): Promise<FoodLibraryItem[]> => {
+  if (isElectron()) return window.electron.getFoodLibraryItems();
+  // For browser development, return empty array or mock data
+  return [];
+};
+
+export const saveFoodLibraryItem = async (
+  item: FoodLibraryItem
+): Promise<FoodLibraryItem> => {
+  if (isElectron()) return window.electron.saveFoodLibraryItem(item);
+  // For browser development, return the item as if it was saved
+  return item;
+};
+
+export const deleteFoodLibraryItem = async (id: string): Promise<void> => {
+  if (isElectron()) return window.electron.deleteFoodLibraryItem(id);
+  // For browser development, do nothing
+  return Promise.resolve();
+};
+
+export const searchFoodLibrary = async (
+  query: string
+): Promise<FoodLibraryItem[]> => {
+  if (isElectron()) return window.electron.searchFoodLibrary(query);
+  // For browser development, return empty array
+  return [];
 };
 
 // Export/Import/Reset functions - These need custom handling

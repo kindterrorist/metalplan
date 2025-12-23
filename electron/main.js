@@ -17,6 +17,10 @@ const {
   deleteNutritionPlan,
   getTrainerProfile,
   saveTrainerProfile,
+  getAllFoodLibraryItems,
+  saveFoodLibraryItem,
+  deleteFoodLibraryItem,
+  searchFoodLibrary,
 } = require("./database");
 
 // Import backup manager
@@ -136,10 +140,26 @@ ipcMain.handle("save-nutrition-plan", async (event, plan) => {
 ipcMain.handle("delete-nutrition-plan", async (event, id) => {
   return deleteNutritionPlan(id);
 });
-
 // Trainer Profile
 ipcMain.handle("get-trainer-profile", async () => {
   return getTrainerProfile();
+});
+
+// Food Library
+ipcMain.handle("get-food-library-items", async () => {
+  return getAllFoodLibraryItems();
+});
+
+ipcMain.handle("save-food-library-item", async (event, item) => {
+  return saveFoodLibraryItem(item);
+});
+
+ipcMain.handle("delete-food-library-item", async (event, id) => {
+  return deleteFoodLibraryItem(id);
+});
+
+ipcMain.handle("search-food-library", async (event, query) => {
+  return searchFoodLibrary(query);
 });
 
 ipcMain.handle("save-trainer-profile", async (event, profile) => {

@@ -39,7 +39,10 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         {/* Main Content */}
         <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#f8fafc] dark:bg-dark-90 transition-colors duration-300">
           {/* Mobile Header */}
-          <MobileHeader setCurrentView={() => setCurrentView("settings")} />
+          <MobileHeader
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+          />
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar scroll-smooth">
             <div className="max-w-7xl mx-auto">{children}</div>

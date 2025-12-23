@@ -6,6 +6,7 @@ import {
   Dumbbell,
   Calculator,
   Settings as SettingsIcon,
+  Utensils,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
       { id: "dashboard", icon: LayoutDashboard, label: "داشبورد" },
       { id: "athletes", icon: Users, label: "ورزشکاران" },
       { id: "exercises", icon: Dumbbell, label: "تمرینات" },
+      { id: "food-library", icon: Utensils, label: "کتابخانه غذاها" },
       { id: "tools", icon: Calculator, label: "ابزارها" },
       { id: "settings", icon: SettingsIcon, label: "تنظیمات" },
     ];

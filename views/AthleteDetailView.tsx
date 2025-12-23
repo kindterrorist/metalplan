@@ -381,7 +381,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                         <Button variant="secondary" onClick={() => { setProgressToExport(selectedAthlete); setIsExportModalOpen(true); }}>
                             <Share2 size={16} className="ml-2" /> خروجی
                         </Button>
-                        <Button variant="secondary" onClick={() => { setEditingAthlete(selectedAthlete); setIsAthleteModalOpen(true); }}>
+                        <Button variant="secondary" onClick={() => { setEditingAthlete(selectedAthlete.id); setIsAthleteModalOpen(true); }}>
                             <Edit size={16} className="ml-2" /> ویرایش
                         </Button>
                         <Button variant="danger" className="px-4" onClick={() => {

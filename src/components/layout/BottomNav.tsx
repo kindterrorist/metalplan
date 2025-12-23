@@ -1,6 +1,12 @@
 import React from "react";
 import { View } from "../../../types";
-import { LayoutDashboard, Users, Dumbbell, Calculator } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Dumbbell,
+  Calculator,
+  Utensils,
+} from "lucide-react";
 
 interface BottomNavProps {
   currentView: View;
@@ -14,6 +20,7 @@ const BottomNav: React.FC<BottomNavProps> = React.memo(
       { id: "dashboard", icon: LayoutDashboard },
       { id: "athletes", icon: Users },
       { id: "exercises", icon: Dumbbell },
+      { id: "food-library", icon: Utensils },
       { id: "tools", icon: Calculator },
     ];
 

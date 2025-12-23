@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../components/UI";
 import { COLOR_PALETTES } from "../utils/helpers";
 import { compressImage } from "../utils/helpers";
 import AppLayout from "./components/layout/AppLayout";
+import AthleteModal from "./components/shared/AthleteModal";
 import {
   LazyDashboardView,
   LazyAthletesView,
@@ -13,6 +14,7 @@ import {
   LazyExercisesView,
   LazyToolsView,
   LazySettingsView,
+  LazyFoodLibraryView,
   LazyPlanBuilderView,
   LazyNutritionBuilderView,
 } from "./utils/lazyLoad.tsx";
@@ -264,6 +266,11 @@ const AppContent: React.FC = () => {
             />
           </Suspense>
         )}
+        {currentView === "food-library" && (
+          <Suspense fallback={<Skeleton className="w-full h-screen" />}>
+            <LazyFoodLibraryView />
+          </Suspense>
+        )}
       </AppLayout>
 
       {/* Export Modal */}
@@ -279,6 +286,22 @@ const AppContent: React.FC = () => {
         setExportConfig={setExportConfig}
         isExporting={isExporting}
         setIsExporting={setIsExporting}
+      />
+
+      {/* Athlete Modal */}
+      <AthleteModal
+        isOpen={isAthleteModalOpen}
+        onClose={() => setIsAthleteModalOpen(false)}
+        editingAthlete={editingAthlete}
+        onSubmit={async (athlete) => {
+          await saveAthlete(athlete);
+          setIsAthleteModalOpen(false);
+          addToast(
+            athlete.id
+              ? "ورزشکار با موفقیت ویرایش شد"
+              : "ورزشکار جدید با موفقیت ایجاد شد"
+          );
+        }}
       />
     </>
   );

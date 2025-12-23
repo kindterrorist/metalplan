@@ -1,10 +1,8 @@
-
-
 export interface Exercise {
   id: string;
   name: string;
   muscleGroup: string;
-  type: 'Machine' | 'Dumbbell' | 'Barbell' | 'Bodyweight' | 'Cable';
+  type: "Machine" | "Dumbbell" | "Barbell" | "Bodyweight" | "Cable";
   notes?: string;
   videoUrl?: string; // e.g., YouTube/Instagram link
   description?: string; // Form tips or instructions
@@ -46,6 +44,23 @@ export interface FoodItem {
   protein: number;
   carbs: number;
   fat: number;
+}
+
+export interface FoodLibraryItem {
+  id: string;
+  name: string;
+  category?: string;
+  amount: string; // e.g., "100g", "1 Cup"
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servingSize?: string;
+  brand?: string;
+  tags?: string[];
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface Meal {
@@ -143,11 +158,11 @@ export interface Athlete {
   phone?: string;
   age: number;
   height: number;
-  gender: 'Male' | 'Female';
+  gender: "Male" | "Female";
   joinDate: string;
   measurements: Measurement[];
   currentGoal?: string; // e.g., "Bulking", "Cutting"
-  status?: 'active' | 'archived'; // New field
+  status?: "active" | "archived"; // New field
   workoutLog?: WorkoutLogEntry[];
   nutritionLog?: NutritionLogEntry[];
   personalRecords?: PersonalRecord[];
@@ -170,18 +185,26 @@ export interface TrainerProfile {
 }
 
 export interface ExportConfig {
-  theme: 'modern' | 'minimal' | 'dark' | 'bold';
+  theme: "modern" | "minimal" | "dark" | "bold";
   primaryColor: string;
   showTrainerInfo: boolean;
   showSlogan: boolean;
   showSignature: boolean;
   showQuote: boolean;
-  backgroundPattern: 'none' | 'dots' | 'grid' | 'waves' | 'custom';
+  backgroundPattern: "none" | "dots" | "grid" | "waves" | "custom";
   customBackgroundImage?: string;
   includePhotos?: boolean;
-  photoAngles?: ('front' | 'side' | 'back')[];
-  photoSelectionMode?: 'first_last' | 'latest' | 'all';
+  photoAngles?: ("front" | "side" | "back")[];
+  photoSelectionMode?: "first_last" | "latest" | "all";
 }
 
 // Navigation Types
-export type View = 'dashboard' | 'athletes' | 'exercises' | 'tools' | 'settings' | 'plan-builder' | 'nutrition-builder';
+export type View =
+  | "dashboard"
+  | "athletes"
+  | "exercises"
+  | "tools"
+  | "settings"
+  | "plan-builder"
+  | "nutrition-builder"
+  | "food-library";

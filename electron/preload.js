@@ -22,11 +22,19 @@ contextBridge.exposeInMainWorld("electron", {
   getNutritionPlans: () => ipcRenderer.invoke("get-nutrition-plans"),
   saveNutritionPlan: (plan) => ipcRenderer.invoke("save-nutrition-plan", plan),
   deleteNutritionPlan: (id) => ipcRenderer.invoke("delete-nutrition-plan", id),
-
   // Trainer Profile
   getTrainerProfile: () => ipcRenderer.invoke("get-trainer-profile"),
   saveTrainerProfile: (profile) =>
     ipcRenderer.invoke("save-trainer-profile", profile),
+
+  // Food Library
+  getFoodLibraryItems: () => ipcRenderer.invoke("get-food-library-items"),
+  saveFoodLibraryItem: (item) =>
+    ipcRenderer.invoke("save-food-library-item", item),
+  deleteFoodLibraryItem: (id) =>
+    ipcRenderer.invoke("delete-food-library-item", id),
+  searchFoodLibrary: (query) =>
+    ipcRenderer.invoke("search-food-library", query),
 
   // Reset Functions
   resetAthletes: () => ipcRenderer.invoke("reset-athletes"),

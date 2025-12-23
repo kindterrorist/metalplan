@@ -26,6 +26,10 @@ export const LazySettingsView = React.memo(
   lazy(() => import("../../views/SettingsView").then(m => ({ default: m.SettingsView })))
 );
 
+export const LazyFoodLibraryView = React.memo(
+  lazy(() => import("../../views/FoodLibraryView").then(m => ({ default: m.FoodLibraryView })))
+);
+
 export const LazyPlanBuilderView = React.memo(
   lazy(() => import("../../components/PlanBuilder").then(m => ({ default: m.PlanBuilder })))
 );

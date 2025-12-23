@@ -1,4 +1,6 @@
 import React from "react";
+import { z } from "zod";
+import { athleteSchema } from "../../utils/validationSchemas";
 import { Athlete } from "../../../types";
 import { Modal, Input, Label, Select, Button } from "../../../components/UI";
 
@@ -25,8 +27,45 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
       status: editingAthlete?.status || "active",
     });
 
+    // State for validation errors
+    const [errors, setErrors] = React.useState<Record<string, string>>({});
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+
+      // Validate the form data using Zod
+      const validationResult = athleteSchema.safeParse({
+        id:
+          editingAthlete?.id ||
+          crypto.randomUUID?.() ||
+          `athlete-${Date.now()}`,
+        fullName: formData.fullName,
+        phone: formData.phone || undefined,
+        age: parseInt(formData.age),
+        height: parseInt(formData.height),
+        gender: formData.gender as "Male" | "Female",
+        joinDate: editingAthlete?.joinDate || new Date().toISOString(),
+        measurements: editingAthlete?.measurements || [],
+        currentGoal: formData.goal || undefined,
+        status: (formData.status as "active" | "archived") || "active",
+      });
+
+      if (!validationResult.success) {
+        // Extract and set validation errors
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((issue) => {
+          // Convert path to string to use as index
+          const field =
+            Array.isArray(issue.path) && issue.path.length > 0
+              ? issue.path[0].toString()
+              : "general";
+          newErrors[field] = issue.message;
+        });
+        setErrors(newErrors);
+        return;
+      }
+
+      // If validation passes, process the form data
       const weightVal = parseFloat(formData.weight);
       let measurements = editingAthlete?.measurements
         ? [...editingAthlete.measurements]
@@ -53,7 +92,7 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
           ? crypto.randomUUID()
           : `athlete-${Date.now()}`,
         fullName: formData.fullName,
-        phone: formData.phone,
+        phone: formData.phone || undefined,
         age: parseInt(formData.age),
         height: parseInt(formData.height),
         gender: formData.gender as "Male" | "Female",
@@ -61,19 +100,30 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
           ? editingAthlete.joinDate
           : new Date().toISOString(),
         measurements: measurements,
-        currentGoal: formData.goal,
-        status: formData.status as "active" | "archived",
+        currentGoal: formData.goal || undefined,
+        status: (formData.status as "active" | "archived") || "active",
       };
       onSubmit(athleteData);
+      setErrors({}); // Clear errors after successful submission
     };
 
     const handleChange = (
       e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
+      const { name, value } = e.target;
       setFormData({
         ...formData,
-        [e.target.name]: e.target.value,
+        [name]: value,
       });
+
+      // Clear the error for this field when user starts typing
+      if (errors[name]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
     };
 
     return (
@@ -89,10 +139,12 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
-              required
-              className="font-bold"
+              className={`font-bold ${errors.fullName ? "border-red-500" : ""}`}
               autoFocus
             />
+            {errors.fullName && (
+              <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>
+            )}
           </div>
           <div>
             <Label>شماره تماس</Label>
@@ -100,8 +152,11 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="font-sans"
+              className={`font-sans ${errors.phone ? "border-red-500" : ""}`}
             />
+            {errors.phone && (
+              <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -111,9 +166,11 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
                 type="number"
                 value={formData.age}
                 onChange={handleChange}
-                required
-                className="text-center"
+                className={`text-center ${errors.age ? "border-red-500" : ""}`}
               />
+              {errors.age && (
+                <p className="text-red-500 text-sm mt-1">{errors.age}</p>
+              )}
             </div>
             <div>
               <Label>قد (cm)</Label>
@@ -122,9 +179,13 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
                 type="number"
                 value={formData.height}
                 onChange={handleChange}
-                required
-                className="text-center"
+                className={`text-center ${
+                  errors.height ? "border-red-500" : ""
+                }`}
               />
+              {errors.height && (
+                <p className="text-red-500 text-sm mt-1">{errors.height}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -147,9 +208,13 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
                 step="0.1"
                 value={formData.weight}
                 onChange={handleChange}
-                required
-                className="text-center"
+                className={`text-center ${
+                  errors.weight ? "border-red-500" : ""
+                }`}
               />
+              {errors.weight && (
+                <p className="text-red-500 text-sm mt-1">{errors.weight}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -160,7 +225,11 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
                 value={formData.goal}
                 onChange={handleChange}
                 placeholder="مثلا: کاهش وزن"
+                className={`${errors.goal ? "border-red-500" : ""}`}
               />
+              {errors.goal && (
+                <p className="text-red-500 text-sm mt-1">{errors.goal}</p>
+              )}
             </div>
             <div>
               <Label>وضعیت</Label>

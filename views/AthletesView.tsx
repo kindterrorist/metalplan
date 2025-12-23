@@ -152,7 +152,7 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
                     return (
                         <Card
                             key={athlete.id}
-                            onClick={() => setSelectedAthlete(athlete)}
+                            onClick={() => setSelectedAthlete(athlete.id)}
                             className="group relative overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 border-gray-100 dark:border-dark-700"
                             style={{ animationDelay: `${index * 50}ms` }}
                         >
