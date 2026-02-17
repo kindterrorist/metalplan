@@ -596,7 +596,7 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                 </div>
                 ${trainer?.logoUrl
             ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;">MORABI</div>`
+            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
         }
             </div>
 
@@ -730,7 +730,7 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                 </div>
                 ${trainer?.logoUrl
             ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;">MORABI</div>`
+            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
         }
             </div>
 
@@ -927,7 +927,7 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
                 </div>
                 ${trainer?.logoUrl
             ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;">MORABI</div>`
+            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
         }
             </div>
 
