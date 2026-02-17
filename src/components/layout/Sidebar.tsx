@@ -8,6 +8,7 @@ import {
   Settings as SettingsIcon,
   Utensils,
 } from "lucide-react";
+import PersianCalendar from "./PersianCalendar";
 
 interface SidebarProps {
   currentView: View;
@@ -31,14 +32,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
         <div>
           <div className="p-8 flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-200 dark:shadow-none transform hover:scale-105 transition-transform cursor-default">
-              M
+              MP
             </div>
             <div>
               <div className="font-black text-2xl text-gray-800 dark:text-white tracking-tight">
-                مربی پرو
+                MetalPlans
               </div>
               <div className="text-xs text-primary-600 dark:text-primary-40 font-bold bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded-md w-fit mt-1">
-                نسخه ۱.۱
+                نسخه آزمایشی
               </div>
             </div>
           </div>
@@ -73,14 +74,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           </nav>
         </div>
         <div className="p-5">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-dark-700 dark:to-dark-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group cursor-default">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-white/20 transition-all"></div>
-            <p className="text-xs text-gray-400 mb-2 font-medium">
-              وضعیت اشتراک
-            </p>
-            <p className="font-black text-lg mb-1">نسخه حرفه‌ای</p>
-            <p className="text-xs text-gray-400">نامحدود و رایگان</p>
-          </div>
+          <PersianCalendar />
         </div>
       </aside>
     );

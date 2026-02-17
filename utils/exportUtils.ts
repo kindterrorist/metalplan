@@ -690,7 +690,7 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                     <div class="footer-note">
                         ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong><br/>` : ''}
                         <span style="opacity:0.7;">برای نتایج بهتر، برنامه را دقیق اجرا کنید.</span>
-                        <div style="margin-top:4px; font-size:10px; opacity:0.5;">طراحی شده با اپلیکیشن مربی پرو</div>
+                        <div style="margin-top:4px; font-size:10px; opacity:0.5;">طراحی شده با اپلیکیشن متال پلنز</div>
                     </div>
                 </div>
 
@@ -801,7 +801,7 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                     <div class="footer-note">
                         ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong><br/>` : ''}
                         <span style="opacity:0.7;">رژیم را دقیق رعایت کنید.</span>
-                        <div style="margin-top:4px; font-size:10px; opacity:0.5;">طراحی شده با اپلیکیشن مربی پرو</div>
+                        <div style="margin-top:4px; font-size:10px; opacity:0.5;">طراحی شده با اپلیکیشن متال پلنز</div>
                     </div>
                 </div>
 
@@ -990,7 +990,7 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
 
             <div class="footer">
                 <div class="footer-note">
-                    ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong>` : 'گزارش پیشرفت - مربی پرو'}
+                    ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong>` : 'گزارش پیشرفت - متال پلنز'}
                     <br/>
                     <span style="opacity:0.7;">تداوم در تمرین و تغذیه سالم، کلید موفقیت شماست.</span>
                 </div>

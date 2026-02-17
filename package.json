@@ -1,5 +1,7 @@
 {
   "name": "metalplans",
+  "description": "Comprehensive athlete fitness and nutrition planning application",
+  "author": "MetalPlans Team",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -9,6 +11,7 @@
     "dev:electron": "concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "build:electron": "vite build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -36,7 +39,7 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.morabipro.metalplans",
+    "appId": "com.metalplans.metalplans",
     "productName": "MetalPlans",
     "directories": {
       "output": "dist"
@@ -44,13 +47,26 @@
     "files": [
       "dist-react/**/*",
       "electron/**/*",
+      "utils/**/*",
       "node_modules/**/*"
     ],
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "nsis": {
+      "installerIcon": "build/icon.png",
+      "uninstallerIcon": "build/icon.png",
+      "uninstallDisplayName": "MetalPlans",
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

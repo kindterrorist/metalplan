@@ -16,7 +16,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = React.memo(
             M
           </div>
           <div className="font-black text-lg text-gray-900 dark:text-white">
-            مربی پرو
+            متال پلنز
           </div>
         </div>
         <button
