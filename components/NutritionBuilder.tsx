@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { nutritionPlanSchema } from '../src/utils/validationSchemas';
-import { Athlete, NutritionPlan, DietDay, Meal, FoodItem } from '../types';
+import { Athlete, NutritionPlan, DietDay, Meal, FoodItem, FoodLibraryItem } from '../types';
 import { Button, Input, Modal, Label, ConfirmDialog, Select } from './UI';
-import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Utensils, AlertTriangle, Coffee, Flame, Droplet, Wheat, Activity } from 'lucide-react';
+import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Utensils, AlertTriangle, Coffee, Flame, Droplet, Wheat, Activity, Search, StickyNote } from 'lucide-react';
+import { getFoodLibraryItems, searchFoodLibrary } from '../services/electronDb';
 
 interface NutritionBuilderProps {
   athlete: Athlete;
@@ -14,6 +15,7 @@ interface NutritionBuilderProps {
 
 export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onSave, onCancel, initialPlan }) => {
   const [name, setName] = useState(initialPlan?.name || `رژیم غذایی برای ${athlete.fullName}`);
+  const [notes, setNotes] = useState(initialPlan?.notes || '');
   const [days, setDays] = useState<DietDay[]>(
     initialPlan?.days || [
         { 
@@ -34,6 +36,13 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
  const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [currentDayId, setCurrentDayId] = useState<string | null>(null);
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
+  const [foodModalTab, setFoodModalTab] = useState<'library' | 'custom'>('library');
+  
+  // Food Library State
+  const [libraryFoods, setLibraryFoods] = useState<FoodLibraryItem[]>([]);
+  const [filteredLibraryFoods, setFilteredLibraryFoods] = useState<FoodLibraryItem[]>([]);
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [libraryLoading, setLibraryLoading] = useState(false);
   
   // Temporary Food Form State
   const [foodForm, setFoodForm] = useState<Partial<FoodItem>>({ name: '', amount: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -44,6 +53,76 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
   // Confirmation State
  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Load food library items when modal opens
+  useEffect(() => {
+    if (isFoodModalOpen && foodModalTab === 'library') {
+      loadLibraryFoods();
+    }
+  }, [isFoodModalOpen, foodModalTab]);
+
+  // Filter library foods based on search query
+  useEffect(() => {
+    if (librarySearchQuery.trim() === '') {
+      setFilteredLibraryFoods(libraryFoods);
+    } else {
+      const query = librarySearchQuery.toLowerCase();
+      setFilteredLibraryFoods(
+        libraryFoods.filter(
+          (item) =>
+            item.name.toLowerCase().includes(query) ||
+            (item.category && item.category.toLowerCase().includes(query))
+        )
+      );
+    }
+  }, [librarySearchQuery, libraryFoods]);
+
+  const loadLibraryFoods = async () => {
+    try {
+      setLibraryLoading(true);
+      const data = await getFoodLibraryItems();
+      setLibraryFoods(data);
+      setFilteredLibraryFoods(data);
+    } catch (error) {
+      console.error('Error loading food library:', error);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const handleAddFoodFromLibrary = (libraryFood: FoodLibraryItem) => {
+    if (!currentDayId || !currentMealId) return;
+
+    const newFood: FoodItem = {
+      id: crypto.randomUUID(),
+      name: libraryFood.name,
+      amount: libraryFood.amount,
+      calories: libraryFood.calories,
+      protein: libraryFood.protein,
+      carbs: libraryFood.carbs,
+      fat: libraryFood.fat,
+    };
+
+    setDays(prev => prev.map(d => {
+      if (d.id === currentDayId) {
+        return {
+          ...d,
+          meals: d.meals.map(m => {
+            if (m.id === currentMealId) {
+              return { ...m, foods: [...m.foods, newFood] };
+            }
+            return m;
+          })
+        };
+      }
+      return d;
+    }));
+
+    setHasUnsavedChanges(true);
+    setIsFoodModalOpen(false);
+    setFoodModalTab('library');
+    setLibrarySearchQuery('');
+  };
 
   const calculateDayMacros = (day: DietDay) => {
       let cals = 0, prot = 0, carb = 0, fat = 0;
@@ -128,7 +207,9 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       
       setHasUnsavedChanges(true);
       setIsFoodModalOpen(false);
+      setFoodModalTab('library');
       setFoodForm({ name: '', amount: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
+      setLibrarySearchQuery('');
   };
 
   const handleDeleteFood = (dayId: string, mealId: string, foodId: string) => {
@@ -157,6 +238,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       name,
       startDate: new Date().toISOString(),
       days,
+      notes,
       created_at: initialPlan?.created_at || Date.now()
     });
 
@@ -195,25 +277,41 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 pb-24">
         {/* Plan Name */}
-        <div className="bg-white dark:bg-dark-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700">
-          <Label className="text-base text-gray-800 dark:text-gray-20">عنوان برنامه غذایی</Label>
-          <Input 
-            value={name} 
-            onChange={(e) => {
-              setName(e.target.value);
-              setHasUnsavedChanges(true);
-              // Clear the error for this field when user starts typing
-              if (errors.name) {
-                setErrors(prev => {
-                  const newErrors = { ...prev };
-                  delete newErrors.name;
-                  return newErrors;
-                });
-              }
-            }}
-            className={`text-lg font-bold mt-2 h-12 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 ${errors.name ? 'border-red-500' : ''}`}
-          />
-          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+        <div className="bg-white dark:bg-dark-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700 space-y-4">
+          <div>
+            <Label className="text-base text-gray-800 dark:text-gray-20">عنوان برنامه غذایی</Label>
+            <Input 
+              value={name} 
+              onChange={(e) => {
+                setName(e.target.value);
+                setHasUnsavedChanges(true);
+                if (errors.name) {
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.name;
+                    return newErrors;
+                  });
+                }
+              }}
+              className={`text-lg font-bold mt-2 h-12 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 ${errors.name ? 'border-red-500' : ''}`}
+            />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+          </div>
+          <div>
+            <Label className="text-base text-gray-800 dark:text-gray-20 flex items-center gap-2">
+              <StickyNote size={18} />
+              توضیحات
+            </Label>
+            <textarea
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+              placeholder="نکات روانشناختی، اهداف رژیم، محدودیت‌های غذایی..."
+              className="w-full mt-2 p-3 rounded-2xl border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:border-green-500 dark:text-white text-sm resize-none h-24 transition-all"
+            />
+          </div>
         </div>
 
         {/* Days List */}
@@ -322,9 +420,97 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       </div>
 
       {/* Food Add Modal */}
-      <Modal isOpen={isFoodModalOpen} onClose={() => setIsFoodModalOpen(false)} title="افزودن ماده غذایی">
+      <Modal isOpen={isFoodModalOpen} onClose={() => { setIsFoodModalOpen(false); setFoodModalTab('library'); }} title="افزودن ماده غذایی">
           <div className="space-y-4">
-              <div>
+            {/* Tab Navigation */}
+            <div className="flex gap-2 border-b border-gray-200 dark:border-dark-700">
+              <button
+                onClick={() => setFoodModalTab('library')}
+                className={`pb-3 px-4 font-semibold transition-colors ${
+                  foodModalTab === 'library'
+                    ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                از کتابخانه
+              </button>
+              <button
+                onClick={() => setFoodModalTab('custom')}
+                className={`pb-3 px-4 font-semibold transition-colors ${
+                  foodModalTab === 'custom'
+                    ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                ورود دستی
+              </button>
+            </div>
+
+            {/* Library Tab */}
+            {foodModalTab === 'library' && (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                <div>
+                  <div className="relative">
+                    <Search
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      size={16}
+                    />
+                    <Input
+                      type="text"
+                      placeholder="جستجوی غذا..."
+                      value={librarySearchQuery}
+                      onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                      className="pr-10 h-10 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800"
+                    />
+                  </div>
+                </div>
+
+                {libraryLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                  </div>
+                )}
+
+                {!libraryLoading && filteredLibraryFoods.length === 0 && (
+                  <div className="text-center py-6">
+                    <Utensils size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {librarySearchQuery ? 'غذایی یافت نشد' : 'کتابخانه خالی است'}
+                    </p>
+                  </div>
+                )}
+
+                {!libraryLoading && filteredLibraryFoods.length > 0 && (
+                  <div className="space-y-2">
+                    {filteredLibraryFoods.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleAddFoodFromLibrary(item)}
+                        className="w-full text-right p-3 bg-gray-50 dark:bg-dark-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-gray-200 dark:border-dark-700 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-800 dark:text-white">{item.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex gap-2">
+                              <span className="flex items-center gap-1"><Flame size={10} className="text-orange-500" /> {item.calories}</span>
+                              <span className="flex items-center gap-1"><Activity size={10} className="text-blue-500" /> P: {item.protein}</span>
+                              <span className="flex items-center gap-1"><Wheat size={10} className="text-amber-500" /> C: {item.carbs}</span>
+                              <span className="flex items-center gap-1"><Droplet size={10} className="text-purple-500" /> F: {item.fat}</span>
+                            </div>
+                          </div>
+                          <Plus size={16} className="text-emerald-600 ml-2 flex-shrink-0" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Custom Tab */}
+            {foodModalTab === 'custom' && (
+              <div className="space-y-4">
+                <div>
                   <Label>نام غذا</Label>
                   <Input 
                     value={foodForm.name} 
@@ -332,16 +518,16 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                     placeholder="مثال: سینه مرغ آبپز" 
                     autoFocus 
                   />
-              </div>
-              <div>
+                </div>
+                <div>
                   <Label>مقدار / واحد</Label>
                   <Input 
                     value={foodForm.amount} 
                     onChange={e => setFoodForm({...foodForm, amount: e.target.value})} 
                     placeholder="مثال: 100 گرم / 1 لیوان" 
                   />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                       <Label>کالری</Label>
                       <Input type="number" value={foodForm.calories} onChange={e => setFoodForm({...foodForm, calories: Number(e.target.value)})} className="text-center" />
@@ -358,8 +544,10 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                       <Label>چربی (g)</Label>
                       <Input type="number" value={foodForm.fat} onChange={e => setFoodForm({...foodForm, fat: Number(e.target.value)})} className="text-center" />
                   </div>
+                </div>
+                <Button onClick={handleSaveFood} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white">افزودن به وعده</Button>
               </div>
-              <Button onClick={handleSaveFood} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white">افزودن به وعده</Button>
+            )}
           </div>
       </Modal>
 

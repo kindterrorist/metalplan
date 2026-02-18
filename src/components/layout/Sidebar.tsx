@@ -8,7 +8,7 @@ import {
   Settings as SettingsIcon,
   Utensils,
 } from "lucide-react";
-import PersianCalendar from "./PersianCalendar";
+import JalaliCalendar from "./JalaliCalendar";
 
 interface SidebarProps {
   currentView: View;
@@ -28,17 +28,17 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     ];
 
     return (
-      <aside className="hidden md:flex w-72 bg-white dark:bg-dark-800 border-l border-gray-200 dark:border-dark-700 flex-col justify-between shadow-sm z-20 transition-colors duration-300">
+      <aside className="hidden md:flex w-72 bg-white dark:bg-dark-800 border-l border-gray-200 dark:border-dark-700 flex-col justify-between shadow-lg dark:shadow-2xl z-20 transition-colors duration-300">
         <div>
           <div className="p-8 flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-200 dark:shadow-none transform hover:scale-105 transition-transform cursor-default">
+            <div className="w-12 h-12 bg-gradient-primary rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-300 dark:shadow-none transform hover:scale-110 transition-all duration-300 cursor-default">
               MP
             </div>
             <div>
-              <div className="font-black text-2xl text-gray-800 dark:text-white tracking-tight">
+              <div className="font-black text-2xl text-gray-900 dark:text-white tracking-tight">
                 MetalPlans
               </div>
-              <div className="text-xs text-primary-600 dark:text-primary-40 font-bold bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded-md w-fit mt-1">
+              <div className="text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg w-fit mt-1 tracking-wide">
                 نسخه آزمایشی
               </div>
             </div>
@@ -51,10 +51,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                   setCurrentView(item.id as View);
                   setSelectedAthlete(null);
                 }}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group ${
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 group font-bold text-sm ${
                   currentView === item.id
-                    ? "bg-primary-600 text-white font-bold shadow-lg shadow-primary-200 dark:shadow-none"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-dark-700 hover:text-gray-900 dark:hover:text-white font-medium"
+                    ? "bg-gradient-primary text-white shadow-lg shadow-blue-300 dark:shadow-none"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-dark-700 dark:hover:to-dark-600 hover:text-gray-900 dark:hover:text-white translate-x-0 hover:-translate-x-1"
                 }`}
               >
                 <item.icon
@@ -62,19 +62,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                   className={
                     currentView === item.id
                       ? "text-white"
-                      : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-white"
+                      : "text-gray-500 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors"
                   }
                 />
-                {item.label}
+                <span className="flex-1 text-right">{item.label}</span>
                 {currentView === item.id && (
-                  <div className="mr-auto w-1.5 h-1.5 bg-white rounded-full" />
+                  <div className="w-2 h-2 bg-white rounded-full shadow-lg" />
                 )}
               </button>
             ))}
           </nav>
         </div>
         <div className="p-5">
-          <PersianCalendar />
+          <JalaliCalendar />
         </div>
       </aside>
     );

@@ -59,11 +59,16 @@ export const getExportStyles = (config: ExportConfig) => {
     :root {
         --primary: ${config.primaryColor};
         --primary-light: ${config.theme === 'dark' ? `${config.primaryColor}33` : `${config.primaryColor}1a`};
+        --primary-lighter: ${config.theme === 'dark' ? `${config.primaryColor}15` : `${config.primaryColor}08`};
         --surface: ${surface};
         --bg: ${bg};
         --border: ${border};
         --text-main: ${textMain};
         --text-muted: ${textMuted};
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
     }
     
     * {
@@ -78,7 +83,7 @@ export const getExportStyles = (config: ExportConfig) => {
         color: var(--text-main);
         margin: 0;
         padding: 40px;
-        line-height: 1.5;
+        line-height: 1.6;
         direction: rtl;
         ${bgPatternCSS}
     }
@@ -87,9 +92,9 @@ export const getExportStyles = (config: ExportConfig) => {
         max-width: 210mm;
         margin: 0 auto;
         background: var(--surface);
-        border-radius: ${config.theme === 'modern' ? '24px' : '0'};
-        box-shadow: ${config.theme === 'modern' ? '0 10px 40px -10px rgba(0,0,0,0.1)' : 'none'};
-        padding: 48px;
+        border-radius: ${config.theme === 'modern' ? '28px' : '0'};
+        box-shadow: ${config.theme === 'modern' ? '0 20px 50px -15px rgba(0,0,0,0.15)' : 'none'};
+        padding: 56px;
         overflow: hidden;
         position: relative;
         min-height: 297mm;
@@ -103,14 +108,14 @@ export const getExportStyles = (config: ExportConfig) => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: ${config.theme === 'dark' ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : (config.theme === 'modern' ? 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)' : 'transparent')};
-        padding: 32px;
+        background: ${config.theme === 'dark' ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : (config.theme === 'modern' ? 'linear-gradient(135deg, var(--primary-light) 0%, rgba(255,255,255,0.5) 100%)' : 'transparent')};
+        padding: 40px 36px;
         border-radius: 24px;
-        margin-bottom: 24px;
+        margin-bottom: 32px;
         border: ${config.theme === 'minimal' || config.theme === 'bold' ? '2px solid var(--text-main)' : '1px solid var(--border)'};
         position: relative;
         overflow: hidden;
-        box-shadow: ${config.theme === 'modern' ? '0 20px 40px -10px rgba(37, 99, 235, 0.1)' : 'none'};
+        box-shadow: ${config.theme === 'modern' ? '0 20px 40px -10px rgba(37, 99, 235, 0.12)' : (config.theme === 'dark' ? 'inset 0 1px 0 rgba(255,255,255,0.1)' : 'none')};
     }
 
     ${config.theme === 'modern' || config.theme === 'dark' ? `
@@ -129,32 +134,36 @@ export const getExportStyles = (config: ExportConfig) => {
     .brand {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
         z-index: 2;
+        flex: 1;
     }
     
     .brand h1 {
-        font-size: 32px;
+        font-size: 36px;
         font-weight: 900;
         color: var(--primary);
         margin: 0;
-        line-height: 1.2;
+        line-height: 1.1;
+        letter-spacing: -0.5px;
     }
 
     .brand-slogan {
         font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
         color: var(--text-muted);
+        opacity: 0.9;
     }
 
     .brand-logo {
-        width: 80px;
-        height: 80px;
+        width: 96px;
+        height: 96px;
         border-radius: 20px;
         object-fit: cover;
-        box-shadow: ${config.theme === 'modern' ? '0 8px 20px -5px rgba(0,0,0,0.1)' : 'none'};
+        box-shadow: ${config.theme === 'modern' ? '0 12px 24px -6px rgba(0,0,0,0.15)' : 'none'};
         z-index: 2;
         background: white;
+        border: 2px solid var(--border);
     }
 
     /* Info Strip - Modern Horizontal Layout */
@@ -162,13 +171,14 @@ export const getExportStyles = (config: ExportConfig) => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: ${config.theme === 'dark' ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255,255,255, 0.8)'};
-        backdrop-filter: blur(10px);
+        background: ${config.theme === 'dark' ? 'rgba(30, 41, 59, 0.7)' : 'linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.6) 100%)'};
+        backdrop-filter: blur(12px);
         border: 1px solid var(--border);
-        padding: 16px 24px;
-        border-radius: 18px;
+        padding: 20px 28px;
+        border-radius: 20px;
         margin-bottom: 40px;
         gap: 24px;
+        box-shadow: ${config.theme === 'modern' ? '0 4px 12px -2px rgba(0,0,0,0.05)' : 'none'};
     }
 
     .info-item {
@@ -180,67 +190,73 @@ export const getExportStyles = (config: ExportConfig) => {
 
     .info-label {
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 900;
         color: var(--primary);
         text-transform: uppercase;
-        opacity: 0.8;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
     }
     
     .info-value {
-        font-size: 15px;
-        font-weight: 800;
+        font-size: 16px;
+        font-weight: 900;
         color: var(--text-main);
+        letter-spacing: -0.3px;
     }
 
     .info-divider {
         width: 1px;
-        height: 40px;
+        height: 48px;
         background: var(--border);
+        opacity: 0.6;
     }
 
     /* Section Title */
     .section-title {
-        font-size: 18px;
-        font-weight: 800;
+        font-size: 20px;
+        font-weight: 900;
         color: var(--primary);
-        margin-bottom: 20px;
+        margin-bottom: 24px;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid var(--border);
+        gap: 10px;
+        padding-bottom: 12px;
+        border-bottom: 3px solid var(--primary);
+        letter-spacing: -0.3px;
     }
 
     /* Days List */
     .days-list {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 28px;
         flex-grow: 1;
     }
 
     .day-card {
         border: ${config.theme === 'minimal' ? 'none' : '1px solid var(--border)'};
-        border-bottom: ${config.theme === 'minimal' ? '2px solid var(--text-main)' : '1px solid var(--border)'};
+        border-bottom: ${config.theme === 'minimal' ? '3px solid var(--text-main)' : '1px solid var(--border)'};
         border-radius: ${config.theme === 'modern' ? '20px' : '0'};
         background: var(--surface);
         break-inside: avoid;
         overflow: hidden;
-        box-shadow: ${config.theme === 'modern' ? '0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'none'};
+        box-shadow: ${config.theme === 'modern' ? '0 4px 12px -2px rgba(0, 0, 0, 0.08)' : 'none'};
+        transition: box-shadow 0.3s ease;
     }
     
     .day-card.rest {
-        background: ${config.theme === 'dark' ? '#451a03' : '#fffbeb'};
+        background: ${config.theme === 'dark' ? '#451a03' : '#fef3c7'};
         border: 2px dashed #f59e0b;
+        box-shadow: 0 0 0 1px inset #f59e0b;
     }
 
     .day-header {
-        background: ${config.theme === 'minimal' ? 'transparent' : 'var(--bg)'};
-        padding: 16px 24px;
+        background: ${config.theme === 'minimal' ? 'transparent' : 'linear-gradient(to left, var(--primary-lighter), transparent)'};
+        padding: 18px 28px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: ${config.theme === 'modern' ? '1px solid var(--border)' : 'none'};
+        border-bottom: ${config.theme === 'modern' ? '2px solid var(--border)' : 'none'};
         cursor: pointer;
     }
     
@@ -251,24 +267,27 @@ export const getExportStyles = (config: ExportConfig) => {
         align-items: center;
         gap: 12px;
         color: var(--text-main);
+        letter-spacing: -0.3px;
     }
     
     .day-subtitle {
         font-size: 12px;
-        font-weight: normal;
+        font-weight: 600;
         color: var(--text-muted);
         margin-right: 8px;
+        opacity: 0.85;
     }
 
-
-
     .badge-count {
-        background: var(--text-main);
-        color: var(--bg);
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        color: white;
         font-size: 12px;
-        padding: 4px 10px;
-        border-radius: 8px;
-        font-weight: bold;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-weight: 900;
+        min-width: 32px;
+        text-align: center;
+        box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.2);
     }
 
     .rest-content {
@@ -276,14 +295,17 @@ export const getExportStyles = (config: ExportConfig) => {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 30px;
+        padding: 40px;
         color: #b45309;
         gap: 12px;
+        font-weight: 600;
+        font-size: 16px;
     }
     
     .chevron-icon {
         transition: transform 0.3s ease;
         transform: rotate(180deg);
+        flex-shrink: 0;
     }
 
     .day-body {
@@ -294,10 +316,15 @@ export const getExportStyles = (config: ExportConfig) => {
     .exercise-row {
         display: grid;
         grid-template-columns: 2.5fr 1fr 1fr 1fr;
-        padding: 16px 24px;
+        padding: 18px 28px;
         align-items: center;
         border-bottom: 1px solid var(--border);
-        gap: 12px;
+        gap: 14px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .exercise-row:hover {
+        background: var(--primary-lighter);
     }
     
     .exercise-row:last-child {
@@ -307,45 +334,80 @@ export const getExportStyles = (config: ExportConfig) => {
     .ex-main {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
     }
     
     .ex-name {
-        font-weight: 800;
+        font-weight: 900;
         font-size: 15px;
         color: var(--text-main);
+        letter-spacing: -0.2px;
+    }
+    
+    .ex-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        width: fit-content;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: var(--primary-light);
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
     
     .stat-pill {
         display: flex;
         flex-direction: column;
         align-items: center;
-        background: var(--bg);
-        padding: 8px 6px;
-        border-radius: 12px;
-        border: 1px solid transparent;
+        background: linear-gradient(135deg, var(--primary-lighter) 0%, var(--bg) 100%);
+        padding: 10px 8px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05);
     }
     
     ${config.theme === 'bold' ? `
     .stat-pill {
         background: transparent;
-        border: 1px solid var(--text-main);
+        border: 2px solid var(--text-main);
         border-radius: 4px;
+        padding: 8px 6px;
     }
     ` : ''}
     
     .stat-label {
-        font-size: 10px;
+        font-size: 9px;
         color: var(--text-muted);
-        font-weight: 700;
-        margin-bottom: 2px;
+        font-weight: 800;
+        margin-bottom: 3px;
         text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
     
     .stat-value {
         font-weight: 900;
-        font-size: 16px;
-        color: var(--text-main);
+        font-size: 17px;
+        color: var(--primary);
+        letter-spacing: -0.2px;
+    }
+    
+    .rep-range-bar {
+        width: 100%;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        margin-top: 4px;
+        overflow: hidden;
+    }
+    
+    .rep-range-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        border-radius: 2px;
     }
 
     .ex-note {
@@ -353,47 +415,116 @@ export const getExportStyles = (config: ExportConfig) => {
         margin-top: 12px;
         background: ${config.theme === 'dark' ? '#3f3f46' : '#fffbeb'};
         color: ${config.theme === 'dark' ? '#fcd34d' : '#92400e'};
-        padding: 10px 16px;
-        border-radius: 12px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        border-left: 3px solid #f59e0b;
         font-size: 13px;
         display: flex;
         align-items: flex-start;
-        gap: 8px;
+        gap: 10px;
         line-height: 1.6;
+        font-weight: 500;
     }
 
     /* Diet Specific Styles */
     .meal-row {
-        padding: 20px 24px;
+        padding: 24px 28px;
         border-bottom: 1px solid var(--border);
+        transition: background-color 0.2s ease;
     }
+    
+    .meal-row:hover {
+        background: var(--primary-lighter);
+    }
+    
     .meal-row:last-child { border-bottom: none; }
     
     .meal-header {
         font-weight: 900;
         font-size: 16px;
         color: var(--primary);
-        margin-bottom: 12px;
+        margin-bottom: 14px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        letter-spacing: -0.2px;
+    }
+    
+    .meal-calorie-badge {
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        color: white;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 900;
+        min-width: 48px;
+        text-align: center;
+        box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.2);
     }
     
     .food-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 0;
+        padding: 10px 0;
         border-bottom: 1px dashed var(--border);
     }
     .food-item:last-child { border-bottom: none; }
     
-    .food-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
-    .food-meta { font-size: 12px; color: var(--text-muted); margin-right: 4px; }
+    .food-name { 
+        font-weight: 800; 
+        font-size: 14px; 
+        color: var(--text-main);
+        letter-spacing: -0.1px;
+    }
+    
+    .food-meta { 
+        font-size: 12px; 
+        color: var(--text-muted); 
+        margin-right: 4px;
+        font-weight: 500;
+    }
     
     .food-macros { 
-        display:flex; gap:12px; font-size:11px; font-weight:bold; 
-        background: var(--bg); padding: 4px 8px; border-radius: 6px;
+        display: flex; 
+        gap: 10px; 
+        font-size: 11px; 
+        font-weight: 800; 
+    }
+    
+    .macro-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 6px 10px;
+        border-radius: 8px;
+    }
+    
+    .macro-carbs {
+        background: #fed7aa;
+        color: #92400e;
+    }
+    
+    .macro-protein {
+        background: #dbeafe;
+        color: #0c4a6e;
+    }
+    
+    .macro-fat {
+        background: #fecaca;
+        color: #7f1d1d;
+    }
+    
+    .macro-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.2px;
+    }
+    
+    .macro-value {
+        font-size: 12px;
+        font-weight: 900;
     }
 
     /* Footer & Photos */
@@ -402,18 +533,19 @@ export const getExportStyles = (config: ExportConfig) => {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         align-items: center;
-        gap: 20px;
-        padding: 24px 32px;
-        background: ${config.theme === 'dark' ? 'rgba(30, 41, 59, 0.5)' : '#f1f5f9'};
-        border-radius: 16px;
+        gap: 24px;
+        padding: 28px 36px;
+        background: ${config.theme === 'dark' ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.5) 100%)' : 'linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.5) 100%)'};
+        border-radius: 20px;
         margin-top: 40px;
         border: 1px solid var(--border);
+        box-shadow: ${config.theme === 'modern' ? '0 4px 12px -2px rgba(0,0,0,0.08)' : 'none'};
     }
     
     .footer-section {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
     }
 
     .footer-center {
@@ -431,55 +563,118 @@ export const getExportStyles = (config: ExportConfig) => {
     .contact-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 11px;
+        gap: 10px;
+        font-size: 12px;
         color: var(--text-muted);
-        font-weight: 500;
+        font-weight: 600;
+        line-height: 1.4;
     }
 
     .contact-row svg {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         color: var(--primary);
+        flex-shrink: 0;
     }
 
     .signature-box {
         text-align: center;
-        width: 140px;
+        width: 160px;
     }
     
     .signature-img {
         max-width: 100%;
-        max-height: 60px;
+        max-height: 70px;
         object-fit: contain;
-        filter: ${config.theme === 'dark' ? 'invert(1)' : 'overlay'};
-        opacity: 0.8;
+        filter: ${config.theme === 'dark' ? 'invert(1)' : 'none'};
+        opacity: 0.9;
+        margin-bottom: 4px;
     }
     
     .signature-line {
         border-top: 2px solid var(--text-main);
-        margin-top: 4px;
-        padding-top: 4px;
+        margin-top: 6px;
+        padding-top: 6px;
         font-size: 11px;
-        font-weight: 800;
+        font-weight: 900;
+        color: var(--text-main);
     }
 
     .footer-note {
         font-size: 11px;
         color: var(--text-muted);
-        line-height: 1.6;
+        line-height: 1.8;
+        font-weight: 500;
+    }
+    
+    .trainer-card {
+        margin-bottom: 32px;
+        padding: 24px 28px;
+        background: linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%);
+        border: 2px solid var(--primary);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        page-break-inside: avoid;
+    }
+    
+    .trainer-card-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        object-fit: cover;
+        background: white;
+        border: 2px solid var(--border);
+        flex-shrink: 0;
+    }
+    
+    .trainer-card-content {
+        flex: 1;
+    }
+    
+    .trainer-card-name {
+        font-size: 16px;
+        font-weight: 900;
+        color: var(--primary);
+        margin: 0 0 8px 0;
+        letter-spacing: -0.2px;
+    }
+    
+    .trainer-card-contacts {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .trainer-contact {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+    
+    .trainer-contact svg {
+        width: 14px;
+        height: 14px;
+        color: var(--primary);
+        flex-shrink: 0;
     }
     
     .quote-box {
-        margin-top: 30px;
-        padding: 20px;
-        border-right: 4px solid var(--primary);
-        background: var(--bg);
+        margin-top: 32px;
+        padding: 24px;
+        border-right: 5px solid var(--primary);
+        background: linear-gradient(135deg, var(--primary-lighter) 0%, transparent 100%);
         font-style: italic;
         color: var(--text-main);
-        font-size: 14px;
-        font-weight: 500;
-        border-radius: 4px;
+        font-size: 15px;
+        font-weight: 600;
+        border-radius: 12px;
+        line-height: 1.8;
+        text-align: center;
     }
     
     .photo-gallery {
@@ -489,35 +684,61 @@ export const getExportStyles = (config: ExportConfig) => {
     
     .photo-grid {
         display: grid; 
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
         gap: 20px;
     }
     
     .photo-card {
-        background: var(--surface); 
-        padding: 12px; 
+        background: linear-gradient(135deg, var(--primary-lighter) 0%, var(--surface) 100%); 
+        padding: 14px; 
         border-radius: 16px; 
         border: 1px solid var(--border); 
-        box-shadow: 0 4px 10px -2px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .photo-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -2px rgba(0,0,0,0.12);
     }
     
     .photo-date {
         text-align: center; 
-        font-weight: 800; 
+        font-weight: 900; 
         margin-bottom: 12px; 
         font-size: 13px; 
         color: var(--text-main); 
         background: var(--bg); 
-        padding: 6px 12px; 
-        border-radius: 8px;
+        padding: 8px 12px; 
+        border-radius: 10px;
+        letter-spacing: -0.2px;
     }
 
     @media print {
-        body { padding: 0; background: white; }
-        .page-container { box-shadow: none; padding: 0mm; width: 100%; max-width: none; min-height: 0; margin: 0; border: none; }
+        body { 
+            padding: 0; 
+            background: white; 
+        }
+        .page-container { 
+            box-shadow: none; 
+            padding: 0mm; 
+            width: 100%; 
+            max-width: none; 
+            min-height: 0; 
+            margin: 0; 
+            border: none;
+            border-radius: 0;
+        }
         .chevron-icon { display: none; }
         .day-body { display: block !important; }
         .day-header { pointer-events: none; }
+        .exercise-row:hover,
+        .meal-row:hover {
+            background: transparent !important;
+        }
+        .photo-card {
+            page-break-inside: avoid;
+        }
     }
 `;
 };
@@ -586,18 +807,14 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
 
     return `
         <div class="page-container">
-            <!-- Hero Header -->
+            <!-- Hero Header (no trainer info) -->
             <div class="header">
                 <div class="brand">
                     <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-                        ${trainer?.logoUrl ? `<img src="${trainer.logoUrl}" style="width:32px; height:32px; border-radius:8px; object-fit:cover;" />` : ''}
-                        <h1 style="font-size:24px;">${trainer?.name || 'برنامه تمرینی'}</h1>
+                        <h1 style="font-size:24px;">${plan.name || 'برنامه تمرینی'}</h1>
                     </div>
+                    <div style="font-size:13px; color:var(--text-muted);">ورزشکار: ${athlete.fullName}</div>
                 </div>
-                ${trainer?.logoUrl
-            ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
-        }
             </div>
 
             <!-- Integrated Info Strip -->
@@ -616,15 +833,7 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                     <span class="info-label">تاریخ تنظیم</span>
                     <span class="info-value">${new Date().toLocaleDateString('fa-IR')}</span>
                 </div>
-                ${trainer?.clubName ? `
-                <div class="info-divider"></div>
-                <div class="info-item">
-                    <span class="info-label">باشگاه</span>
-                    <span class="info-value">${trainer.clubName}</span>
-                </div>` : ''}
             </div>
-
-            ${plan.notes ? `<div style="margin-bottom:24px; padding:16px; background:var(--bg); border-radius:12px; font-size:13px; color:var(--text-muted); line-height:1.6;"><strong>توضیحات مربی:</strong> ${plan.notes}</div>` : ''}
 
             <div class="days-list">
                 ${plan.days
@@ -683,32 +892,18 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                 `).join('')}
             </div>
 
+            <!-- Trainer info removed by request -->
+
+            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-left:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات برنامه:</strong><br/><span style="margin-top:8px; display:block;">${plan.notes}</span></div>` : ''}
+
             ${config.showQuote ? `<div class="quote-box">"${randomQuote}"</div>` : ''}
 
             <div class="footer">
                 <div class="footer-section">
                     <div class="footer-note">
-                        ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong><br/>` : ''}
                         <span style="opacity:0.7;">برای نتایج بهتر، برنامه را دقیق اجرا کنید.</span>
                         <div style="margin-top:4px; font-size:10px; opacity:0.5;">طراحی شده با اپلیکیشن متال پلنز</div>
                     </div>
-                </div>
-
-                <div class="footer-section footer-center">
-                    ${config.showTrainerInfo ? `
-                        ${trainer?.phone ? `<div class="contact-row">${EXPORT_ICONS.phone} <span dir="ltr">${trainer.phone}</span></div>` : ''}
-                        ${trainer?.instagram ? `<div class="contact-row">${EXPORT_ICONS.insta} <span dir="ltr">${trainer.instagram}</span></div>` : ''}
-                        ${trainer?.telegram ? `<div class="contact-row">${EXPORT_ICONS.send} <span dir="ltr">${trainer.telegram}</span></div>` : ''}
-                    ` : '<div style="opacity:0.3; font-size:12px;">-</div>'}
-                </div>
-
-                <div class="footer-section footer-left">
-                     ${(config.showSignature && trainer?.signatureUrl) ? `
-                        <div class="signature-box">
-                            <img src="${trainer.signatureUrl}" class="signature-img" alt="امضا" />
-                            <div class="signature-line">امضای مربی</div>
-                        </div>
-                    ` : ''}
                 </div>
             </div>
         </div>
@@ -752,8 +947,6 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                 </div>
             </div>
 
-            ${plan.notes ? `<div style="margin-bottom:24px; padding:16px; background:var(--bg); border-radius:12px; font-size:13px; color:var(--text-muted); line-height:1.6;"><strong>توضیحات مربی:</strong> ${plan.notes}</div>` : ''}
-
             <div class="days-list">
                 ${plan.days.map(day => {
             let cals = 0, prot = 0;
@@ -795,6 +988,23 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                     </div>
                 `}).join('')}
             </div>
+
+            ${trainer && config.showTrainerInfo ? `
+            <div class="trainer-card">
+                ${trainer.logoUrl ? `<img src="${trainer.logoUrl}" class="trainer-card-logo" alt="${trainer.name}" />` : ''}
+                <div class="trainer-card-content">
+                    <h3 class="trainer-card-name">${trainer.name || 'مربی'}</h3>
+                    <div class="trainer-card-contacts">
+                        ${trainer.phone ? `<div class="trainer-contact">${EXPORT_ICONS.phone}<span dir="ltr">${trainer.phone}</span></div>` : ''}
+                        ${trainer.instagram ? `<div class="trainer-contact">${EXPORT_ICONS.insta}<span dir="ltr">@${trainer.instagram}</span></div>` : ''}
+                        ${trainer.telegram ? `<div class="trainer-contact">${EXPORT_ICONS.send}<span dir="ltr">${trainer.telegram}</span></div>` : ''}
+                        ${trainer.email ? `<div class="trainer-contact">${EXPORT_ICONS.mail}<span dir="ltr">${trainer.email}</span></div>` : ''}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-left:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات رژیم:</strong><br/><span style="margin-top:8px; display:block; white-space: pre-wrap;">${plan.notes}</span></div>` : ''}
 
             <div class="footer">
                 <div class="footer-section">
@@ -915,20 +1125,14 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
 
     return `
         <div class="page-container">
-            <!-- Hero Header -->
+            <!-- Hero Header (no trainer info) -->
             <div class="header">
                 <div class="brand">
                     <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-                        ${trainer?.logoUrl ? `<img src="${trainer.logoUrl}" style="width:32px; height:32px; border-radius:8px; object-fit:cover;" />` : ''}
-                        <h1 style="font-size:24px;">${trainer?.name || 'گزارش پیشرفت'}</h1>
+                        <h1 style="font-size:24px;">گزارش پیشرفت</h1>
                     </div>
-                    ${(config.showSlogan && trainer?.slogan) ? `<span class="brand-slogan">${trainer.slogan}</span>` : ''}
-                    
+                    <div style="font-size:13px; color:var(--text-muted);">ورزشکار: ${athlete.fullName}</div>
                 </div>
-                ${trainer?.logoUrl
-            ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
-        }
             </div>
 
             <!-- Integrated Info Strip -->
@@ -990,16 +1194,8 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
 
             <div class="footer">
                 <div class="footer-note">
-                    ${(config.showSlogan && trainer?.slogan) ? `<strong>${trainer.slogan}</strong>` : 'گزارش پیشرفت - متال پلنز'}
-                    <br/>
                     <span style="opacity:0.7;">تداوم در تمرین و تغذیه سالم، کلید موفقیت شماست.</span>
                 </div>
-                ${(config.showSignature && trainer?.signatureUrl) ? `
-                    <div class="signature-box">
-                        <img src="${trainer.signatureUrl}" class="signature-img" alt="امضا" />
-                        <div class="signature-line">امضای مربی</div>
-                    </div>
-                ` : ''}
             </div>
         </div>
     `;

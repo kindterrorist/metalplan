@@ -79,6 +79,7 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [planToExport, setPlanToExport] = useState<WorkoutPlan | null>(null);
   const [dietToExport, setDietToExport] = useState<NutritionPlan | null>(null);
+  const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
   const [progressToExport, setProgressToExport] = useState<Athlete | null>(
     null
   );
@@ -131,9 +132,14 @@ const AppContent: React.FC = () => {
                 await savePlan(plan);
                 refreshData();
                 addToast("برنامه با موفقیت ذخیره شد");
+                setEditingPlan(null);
                 setCurrentView("athletes");
               }}
-              onCancel={() => setCurrentView("athletes")}
+              onCancel={() => {
+                setEditingPlan(null);
+                setCurrentView("athletes");
+              }}
+              initialPlan={editingPlan}
             />
           </Suspense>
         ) : (
@@ -207,6 +213,7 @@ const AppContent: React.FC = () => {
                 setEditingAthlete={setEditingAthleteId}
                 setIsAthleteModalOpen={setIsAthleteModalOpen}
                 setCurrentView={setCurrentView}
+                setEditingPlan={setEditingPlan}
                 setPlanToExport={setPlanToExport}
                 setDietToExport={setDietToExport}
                 setProgressToExport={setProgressToExport}

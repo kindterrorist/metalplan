@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Label, Input } from '../components/UI';
-import { Dumbbell, Activity, BrainCircuit, Calculator, Utensils, Droplet, Beef, Scale, Timer, Percent } from 'lucide-react';
+import { Dumbbell, Activity, BrainCircuit, Calculator, Utensils, Droplet, Scale, Timer, Percent } from 'lucide-react';
 import { generatePlanSuggestion } from '../services/geminiService';
 
 interface ToolsViewProps {
@@ -176,55 +176,6 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
         }
     };
 
-    // Rest Timer State
-    const [restTime, setRestTime] = useState(60);
-    const [timerRunning, setTimerRunning] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(60);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-    useEffect(() => {
-        if (timerRunning && timeLeft > 0) {
-            timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-        } else if (timeLeft === 0) {
-            setTimerRunning(false);
-            addToast('زمان استراحت تمام شد!', 'آماده برای ست بعدی', 'success');
-        }
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, [timerRunning, timeLeft]);
-
-    const startTimer = () => {
-        setTimeLeft(restTime);
-        setTimerRunning(true);
-    };
-
-    const stopTimer = () => {
-        setTimerRunning(false);
-        if (timerRef.current) clearTimeout(timerRef.current);
-    };
-
-    const resetTimer = () => {
-        setTimerRunning(false);
-        setTimeLeft(restTime);
-        if (timerRef.current) clearTimeout(timerRef.current);
-    };
-
-    // Lean Body Mass Calculator State
-    const [lbmWeight, setLbmWeight] = useState('');
-    const [lbmBodyFat, setLbmBodyFat] = useState('');
-    const [lbmResult, setLbmResult] = useState<{ lbm: number; fatMass: number } | null>(null);
-
-    const calculateLBM = () => {
-        const weight = parseFloat(lbmWeight);
-        const bf = parseFloat(lbmBodyFat);
-        if (weight && bf) {
-            const fatMass = (weight * bf) / 100;
-            const lbm = weight - fatMass;
-            setLbmResult({ lbm: Math.round(lbm * 10) / 10, fatMass: Math.round(fatMass * 10) / 10 });
-        }
-    };
-
     // Water Intake Calculator State
     const [waterWeight, setWaterWeight] = useState('');
     const [waterActivity, setWaterActivity] = useState<'low' | 'moderate' | 'high'>('moderate');
@@ -240,18 +191,170 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
         }
     };
 
-    // Protein per Meal Calculator State
-    const [proteinDaily, setProteinDaily] = useState('');
-    const [proteinMeals, setProteinMeals] = useState('4');
-    const [proteinResult, setProteinResult] = useState<{ perMeal: number; minPerMeal: number } | null>(null);
+    // Heart Rate Zone Calculator State
+    const [hrAge, setHrAge] = useState('');
+    const [hrResting, setHrResting] = useState('');
+    const [hrMax, setHrMax] = useState('');
+    const [hrResult, setHrResult] = useState<{ maxHR: number; zones: { name: string; min: number; max: number; range: string }[] } | null>(null);
 
-    const calculateProteinPerMeal = () => {
-        const daily = parseFloat(proteinDaily);
-        const meals = parseFloat(proteinMeals);
-        if (daily && meals) {
-            const perMeal = daily / meals;
-            const minPerMeal = 25; // minimum leucine threshold
-            setProteinResult({ perMeal: Math.round(perMeal), minPerMeal });
+    const calculateHeartRateZones = () => {
+        const age = parseFloat(hrAge);
+        const resting = parseFloat(hrResting) || 70;
+        const maxHR = parseFloat(hrMax) || (220 - age);
+
+        if (age && maxHR > 0) {
+            const zones = [
+                { name: 'بازیابی', min: Math.round(maxHR * 0.50), max: Math.round(maxHR * 0.60), range: '50-60%' },
+                { name: 'چربی سوزی', min: Math.round(maxHR * 0.60), max: Math.round(maxHR * 0.70), range: '60-70%' },
+                { name: 'هوازی', min: Math.round(maxHR * 0.70), max: Math.round(maxHR * 0.80), range: '70-80%' },
+                { name: 'آناروبیک', min: Math.round(maxHR * 0.80), max: Math.round(maxHR * 0.90), range: '80-90%' },
+                { name: 'حداکثر', min: Math.round(maxHR * 0.90), max: Math.round(maxHR), range: '90-100%' }
+            ];
+
+            setHrResult({ maxHR: Math.round(maxHR), zones });
+        }
+    };
+
+    // Recovery Time Calculator State
+    const [recoveryIntensity, setRecoveryIntensity] = useState('5');
+    const [recoveryDuration, setRecoveryDuration] = useState('');
+    const [recoveryFitness, setRecoveryFitness] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
+    const [recoverySleep, setRecoverySleep] = useState<'poor' | 'average' | 'good'>('average');
+    const [recoveryResult, setRecoveryResult] = useState<{ hours: number; days: number; recommendations: string[] } | null>(null);
+
+    const calculateRecoveryTime = () => {
+        const intensity = parseFloat(recoveryIntensity);
+        const duration = parseFloat(recoveryDuration);
+
+        if (intensity && duration) {
+            let baseRecovery = (intensity * duration) / 10; // Base recovery in hours
+
+            // Adjust for fitness level
+            if (recoveryFitness === 'beginner') baseRecovery *= 1.3;
+            else if (recoveryFitness === 'advanced') baseRecovery *= 0.8;
+
+            // Adjust for sleep quality
+            if (recoverySleep === 'poor') baseRecovery *= 1.4;
+            else if (recoverySleep === 'good') baseRecovery *= 0.9;
+
+            const hours = Math.max(24, Math.round(baseRecovery));
+            const days = Math.ceil(hours / 24);
+
+            const recommendations = [];
+            if (days >= 3) recommendations.push('استراحت کامل برای ۲-۳ روز');
+            if (recoverySleep === 'poor') recommendations.push('بهبود کیفیت خواب');
+            if (intensity >= 8) recommendations.push('تمرینات سبک و هوازی');
+            if (recoveryFitness === 'beginner') recommendations.push('افزایش تدریجی شدت تمرینات');
+
+            setRecoveryResult({ hours, days, recommendations });
+        }
+    };
+
+    // VO2 Max Calculator State
+    const [vo2Method, setVo2Method] = useState<'rockport' | 'cooper'>('rockport');
+    const [vo2Weight, setVo2Weight] = useState('');
+    const [vo2Age, setVo2Age] = useState('');
+    const [vo2Time, setVo2Time] = useState(''); // minutes for walk/run
+    const [vo2HeartRate, setVo2HeartRate] = useState(''); // for Rockport test
+    const [vo2Distance, setVo2Distance] = useState(''); // for Cooper test
+    const [vo2Result, setVo2Result] = useState<{ vo2max: number; category: string; fitness: string } | null>(null);
+
+    const calculateVO2Max = () => {
+        const weight = parseFloat(vo2Weight);
+        const age = parseFloat(vo2Age);
+
+        if (weight && age) {
+            let vo2max = 0;
+
+            if (vo2Method === 'rockport') {
+                const time = parseFloat(vo2Time); // minutes
+                const hr = parseFloat(vo2HeartRate); // heart rate
+                if (time && hr) {
+                    // Rockport walking test formula
+                    vo2max = 132.853 - (0.0769 * weight) - (0.3877 * age) + (6.315 * (1)) - (3.2649 * time) - (0.1565 * hr);
+                }
+            } else if (vo2Method === 'cooper') {
+                const distance = parseFloat(vo2Distance); // meters
+                if (distance) {
+                    // Cooper 12-min run test formula
+                    vo2max = (distance - 504.9) / 44.73;
+                }
+            }
+
+            if (vo2max > 0) {
+                vo2max = Math.round(vo2max * 10) / 10;
+
+                let category = '';
+                let fitness = '';
+
+                if (vo2max < 25) { category = 'خیلی ضعیف'; fitness = 'نیاز به بهبود'; }
+                else if (vo2max < 30) { category = 'ضعیف'; fitness = 'متوسط'; }
+                else if (vo2max < 35) { category = 'متوسط'; fitness = 'خوب'; }
+                else if (vo2max < 40) { category = 'خوب'; fitness = 'عالی'; }
+                else { category = 'عالی'; fitness = 'ورزشکار حرفه‌ای'; }
+
+                setVo2Result({ vo2max, category, fitness });
+            }
+        }
+    };
+
+    // Supplement Dosage Calculator State
+    const [suppType, setSuppType] = useState<'protein' | 'creatine' | 'bcaas' | 'beta_alanine'>('protein');
+    const [suppWeight, setSuppWeight] = useState('');
+    const [suppGoal, setSuppGoal] = useState<'maintenance' | 'muscle_gain' | 'fat_loss'>('maintenance');
+    const [suppResult, setSuppResult] = useState<{ daily: number; timing: string; notes: string[] } | null>(null);
+
+    const calculateSupplementDosage = () => {
+        const weight = parseFloat(suppWeight);
+
+        if (weight) {
+            let daily = 0;
+            let timing = '';
+            const notes = [];
+
+            switch (suppType) {
+                case 'protein':
+                    if (suppGoal === 'muscle_gain') {
+                        daily = weight * 2.2; // 2.2g per kg for muscle gain
+                        timing = '۴-۶ وعده در روز';
+                        notes.push('هر وعده ۲۰-۴۰ گرم پروتئین');
+                        notes.push('ترکیب با کربوهیدرات برای جذب بهتر');
+                    } else if (suppGoal === 'fat_loss') {
+                        daily = weight * 1.6; // 1.6g per kg for fat loss
+                        timing = '۳-۵ وعده در روز';
+                        notes.push('هر وعده ۲۵-۳۵ گرم پروتئین');
+                        notes.push('تمرکز روی پروتئین بدون چربی');
+                    } else {
+                        daily = weight * 1.2; // 1.2g per kg maintenance
+                        timing = '۳-۴ وعده در روز';
+                        notes.push('هر وعده ۲۰-۳۰ گرم پروتئین');
+                    }
+                    break;
+
+                case 'creatine':
+                    daily = 5; // 5g per day standard
+                    timing = 'هر روز، ترجیحاً بعد از تمرین';
+                    notes.push('۵ گرم در روز برای اشباع عضلات');
+                    notes.push('می‌توان با آب یا آبمیوه مصرف کرد');
+                    notes.push('برای نتیجه بهتر ۲۰ گرم در روز به مدت ۵-۷ روز');
+                    break;
+
+                case 'bcaas':
+                    daily = weight * 0.3; // 0.3g per kg
+                    timing = 'قبل، حین یا بعد از تمرین';
+                    notes.push('نسبت ۲:۱:۱ (لوسین:ایزولوسین:والین)');
+                    notes.push('برای کاهش خستگی عضلانی');
+                    break;
+
+                case 'beta_alanine':
+                    daily = 5; // 5g per day
+                    timing = 'با غذا برای کاهش سوزن سوزن شدن';
+                    notes.push('ممکن است باعث سوزن سوزن شدن پوست شود');
+                    notes.push('برای بهبود عملکرد هوازی و قدرتی');
+                    break;
+            }
+
+            setSuppResult({ daily: Math.round(daily), timing, notes });
         }
     };
 
@@ -528,69 +631,12 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
                             )}
                         </div>
                     </Card>
-
-                    {/* Lean Body Mass Calculator */}
-                    <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Activity className="text-teal-500" size={20} /> توده عضلانی (LBM)</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <Label>وزن (kg)</Label>
-                                <Input type="number" value={lbmWeight} onChange={e => setLbmWeight(e.target.value)} />
-                            </div>
-                            <div>
-                                <Label>درصد چربی (%)</Label>
-                                <Input type="number" value={lbmBodyFat} onChange={e => setLbmBodyFat(e.target.value)} />
-                            </div>
-                            <Button onClick={calculateLBM} className="w-full bg-teal-600 hover:bg-teal-700">محاسبه</Button>
-                            {lbmResult && (
-                                <div className="mt-4 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-2xl">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">توده عضلانی:</span>
-                                        <span className="text-xl font-bold text-teal-600 dark:text-teal-400">{lbmResult.lbm} kg</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">توده چربی:</span>
-                                        <span className="text-xl font-bold text-gray-500">{lbmResult.fatMass} kg</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
                 </div>
             </div>
 
             {/* Utilities Tab */}
             <div className={activeTab === 'utils' ? 'block animate-fade-in' : 'hidden'}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Rest Timer */}
-                    <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Timer className="text-violet-500" size={20} /> تایمر استراحت</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <Label>زمان استراحت (ثانیه)</Label>
-                                <Input type="number" value={restTime} onChange={e => setRestTime(parseInt(e.target.value) || 60)} disabled={timerRunning} />
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                <Button onClick={() => { setRestTime(30); setTimeLeft(30); }} variant="secondary" className="text-xs" disabled={timerRunning}>30s</Button>
-                                <Button onClick={() => { setRestTime(60); setTimeLeft(60); }} variant="secondary" className="text-xs" disabled={timerRunning}>60s</Button>
-                                <Button onClick={() => { setRestTime(90); setTimeLeft(90); }} variant="secondary" className="text-xs" disabled={timerRunning}>90s</Button>
-                                <Button onClick={() => { setRestTime(120); setTimeLeft(120); }} variant="secondary" className="text-xs" disabled={timerRunning}>2m</Button>
-                                <Button onClick={() => { setRestTime(180); setTimeLeft(180); }} variant="secondary" className="text-xs" disabled={timerRunning}>3m</Button>
-                                <Button onClick={() => { setRestTime(300); setTimeLeft(300); }} variant="secondary" className="text-xs" disabled={timerRunning}>5m</Button>
-                            </div>
-                            <div className="p-6 bg-violet-50 dark:bg-violet-900/20 rounded-2xl text-center">
-                                <div className="text-5xl font-black text-violet-600 dark:text-violet-400 font-mono tracking-wider">
-                                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                <Button onClick={startTimer} disabled={timerRunning} className="bg-green-600 hover:bg-green-700">شروع</Button>
-                                <Button onClick={stopTimer} disabled={!timerRunning} className="bg-red-600 hover:bg-red-700">توقف</Button>
-                                <Button onClick={resetTimer} variant="secondary">ریست</Button>
-                            </div>
-                        </div>
-                    </Card>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Water Intake Calculator */}
                     <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Droplet className="text-cyan-500" size={20} /> محاسبه آب بدن</h3>
@@ -601,7 +647,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
                             </div>
                             <div>
                                 <Label>سطح فعالیت</Label>
-                                <select value={waterActivity} onChange={e => setWaterActivity(e.target.value as 'low' | 'moderate' | 'high')} className="w-full p-2 rounded-xl border border-gray-200 bg-white dark:bg-dark-800 dark:border-dark-600">
+                                <select value={waterActivity} onChange={(e) => setWaterActivity(e.target.value as any)} className="w-full p-2 rounded-xl border border-gray-200 bg-white dark:bg-dark-800 dark:border-dark-600">
                                     <option value="low">کم</option>
                                     <option value="moderate">متوسط</option>
                                     <option value="high">زیاد</option>
@@ -612,33 +658,168 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
                                 <div className="mt-4 p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl text-center">
                                     <div className="text-sm text-gray-500">آب روزانه:</div>
                                     <div className="text-3xl font-black text-cyan-600 dark:text-cyan-400">{waterResult} ml</div>
-                                    <div className="text-xs text-gray-400 mt-1">≈ {Math.round(waterResult / 250)} لیوان</div>
+                                    <div className="text-xs text-gray-400 mt-1">≈ {Math.round(waterResult / 250) || 0} لیوان</div>
                                 </div>
                             )}
                         </div>
                     </Card>
 
-                    {/* Protein per Meal Calculator */}
+                    {/* Heart Rate Zone Calculator */}
                     <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Beef className="text-red-500" size={20} /> پروتئین هر وعده</h3>
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Activity className="text-red-500" size={20} /> محاسبه مناطق ضربان قلب</h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><Label className="text-xs">سن</Label><Input type="number" value={hrAge} onChange={e => setHrAge(e.target.value)} /></div>
+                                <div><Label className="text-xs">ضربان استراحت</Label><Input type="number" value={hrResting} onChange={e => setHrResting(e.target.value)} placeholder="اختیاری" /></div>
+                            </div>
+                            <div>
+                                <Label>ضربان حداکثر</Label>
+                                <Input type="number" value={hrMax} onChange={e => setHrMax(e.target.value)} placeholder="اختیاری (محاسبه خودکار)" />
+                            </div>
+                            <Button onClick={calculateHeartRateZones} className="w-full bg-red-600 hover:bg-red-700">محاسبه</Button>
+                            {hrResult && (
+                                <div className="mt-4 space-y-2">
+                                    <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                        <div className="text-sm text-gray-500">ضربان حداکثر:</div>
+                                        <div className="text-xl font-bold text-red-600 dark:text-red-400">{hrResult.maxHR} bpm</div>
+                                    </div>
+                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                        {hrResult.zones.map((zone, i) => (
+                                            <div key={i} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
+                                                <span className="font-semibold">{zone.name}</span>
+                                                <span className="text-gray-600 dark:text-gray-400">{zone.min}-{zone.max} bpm ({zone.range})</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* Recovery Time Calculator */}
+                    <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Timer className="text-green-500" size={20} /> محاسبه زمان ریکاوری</h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><Label className="text-xs">شدت تمرین (۱-۱۰)</Label><Input type="number" min="1" max="10" value={recoveryIntensity} onChange={e => setRecoveryIntensity(e.target.value)} /></div>
+                                <div><Label className="text-xs">مدت (دقیقه)</Label><Input type="number" value={recoveryDuration} onChange={e => setRecoveryDuration(e.target.value)} /></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <Label className="text-xs">سطح fitness</Label>
+                                    <select value={recoveryFitness} onChange={(e) => setRecoveryFitness(e.target.value as any)} className="w-full p-2 rounded-lg border text-xs">
+                                        <option value="beginner">مبتدی</option>
+                                        <option value="intermediate">متوسط</option>
+                                        <option value="advanced">پیشرفته</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label className="text-xs">کیفیت خواب</Label>
+                                    <select value={recoverySleep} onChange={(e) => setRecoverySleep(e.target.value as any)} className="w-full p-2 rounded-lg border text-xs">
+                                        <option value="poor">ضعیف</option>
+                                        <option value="average">متوسط</option>
+                                        <option value="good">خوب</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <Button onClick={calculateRecoveryTime} className="w-full bg-green-600 hover:bg-green-700">محاسبه</Button>
+                            {recoveryResult && (
+                                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-2xl text-center">
+                                    <div className="text-sm text-gray-500">زمان ریکاوری:</div>
+                                    <div className="text-2xl font-black text-green-600 dark:text-green-400">{recoveryResult.hours} ساعت</div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">≈ {recoveryResult.days} روز</div>
+                                    {recoveryResult.recommendations.length > 0 && (
+                                        <div className="mt-3 text-xs text-right">
+                                            <div className="font-semibold mb-1">توصیه‌ها:</div>
+                                            {recoveryResult.recommendations.map((rec, i) => (
+                                                <div key={i} className="text-gray-600 dark:text-gray-400">• {rec}</div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* VO2 Max Calculator */}
+                    <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Activity className="text-blue-500" size={20} /> محاسبه VO2 Max</h3>
                         <div className="space-y-4">
                             <div>
-                                <Label>پروتئین روزانه (g)</Label>
-                                <Input type="number" value={proteinDaily} onChange={e => setProteinDaily(e.target.value)} />
+                                <Label>روش آزمون</Label>
+                                <select value={vo2Method} onChange={(e) => setVo2Method(e.target.value as any)} className="w-full p-2 rounded-xl border border-gray-200 bg-white dark:bg-dark-800 dark:border-dark-600">
+                                    <option value="rockport">آزمون پیاده‌روی راکپورت</option>
+                                    <option value="cooper">آزمون دو ۱۲ دقیقه‌ای کوپر</option>
+                                </select>
                             </div>
-                            <div>
-                                <Label>تعداد وعده</Label>
-                                <Input type="number" value={proteinMeals} onChange={e => setProteinMeals(e.target.value)} />
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><Label className="text-xs">وزن (kg)</Label><Input type="number" value={vo2Weight} onChange={e => setVo2Weight(e.target.value)} /></div>
+                                <div><Label className="text-xs">سن</Label><Input type="number" value={vo2Age} onChange={e => setVo2Age(e.target.value)} /></div>
                             </div>
-                            <Button onClick={calculateProteinPerMeal} className="w-full bg-red-600 hover:bg-red-700">محاسبه</Button>
-                            {proteinResult && (
-                                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl">
-                                    <div className="text-center mb-3">
-                                        <div className="text-sm text-gray-500">پروتئین هر وعده:</div>
-                                        <div className="text-3xl font-black text-red-600 dark:text-red-400">{proteinResult.perMeal}g</div>
+                            {vo2Method === 'rockport' ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div><Label className="text-xs">زمان (دقیقه)</Label><Input type="number" value={vo2Time} onChange={e => setVo2Time(e.target.value)} /></div>
+                                    <div><Label className="text-xs">ضربان قلب</Label><Input type="number" value={vo2HeartRate} onChange={e => setVo2HeartRate(e.target.value)} /></div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <Label>مسافت دویدن (متر)</Label>
+                                    <Input type="number" value={vo2Distance} onChange={e => setVo2Distance(e.target.value)} />
+                                </div>
+                            )}
+                            <Button onClick={calculateVO2Max} className="w-full bg-blue-600 hover:bg-blue-700">محاسبه</Button>
+                            {vo2Result && (
+                                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-center">
+                                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{vo2Result.vo2max} ml/kg/min</div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{vo2Result.category}</div>
+                                    <div className="text-xs text-gray-500 mt-1">سطح fitness: {vo2Result.fitness}</div>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* Supplement Dosage Calculator */}
+                    <Card className="p-6 hover:shadow-lg transition-shadow duration-300 md:col-span-2">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Utensils className="text-purple-500" size={20} /> محاسبه دوز مکمل‌ها</h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <Label>نوع مکمل</Label>
+                                    <select value={suppType} onChange={(e) => setSuppType(e.target.value as any)} className="w-full p-2 rounded-xl border border-gray-200 bg-white dark:bg-dark-800 dark:border-dark-600">
+                                        <option value="protein">پروتئین</option>
+                                        <option value="creatine">کراتین</option>
+                                        <option value="bcaas">BCAA</option>
+                                        <option value="beta_alanine">بتا آلانین</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label>وزن بدن (kg)</Label>
+                                    <Input type="number" value={suppWeight} onChange={e => setSuppWeight(e.target.value)} />
+                                </div>
+                                <div>
+                                    <Label>هدف</Label>
+                                    <select value={suppGoal} onChange={(e) => setSuppGoal(e.target.value as any)} className="w-full p-2 rounded-xl border border-gray-200 bg-white dark:bg-dark-800 dark:border-dark-600">
+                                        <option value="maintenance">حفظ وزن</option>
+                                        <option value="muscle_gain">افزایش عضله</option>
+                                        <option value="fat_loss">کاهش چربی</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <Button onClick={calculateSupplementDosage} className="w-full bg-purple-600 hover:bg-purple-700">محاسبه</Button>
+                            {suppResult && (
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl text-center">
+                                        <div className="text-sm text-gray-500">دوز روزانه:</div>
+                                        <div className="text-2xl font-black text-purple-600 dark:text-purple-400">{suppResult.daily}g</div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{suppResult.timing}</div>
                                     </div>
-                                    <div className="text-xs text-gray-500 text-center border-t pt-2">
-                                        توصیه: حداقل {proteinResult.minPerMeal}g در هر وعده
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
+                                        <div className="text-sm font-semibold mb-2">نکات مهم:</div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                            {suppResult.notes.map((note, i) => (
+                                                <div key={i}>• {note}</div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}

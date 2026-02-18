@@ -67,31 +67,31 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="p-4 flex items-center justify-between border-none bg-gradient-to-br from-blue-500/10 to-blue-600/5 dark:from-blue-500/20 dark:to-blue-600/10 backdrop-blur-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-item">
+                    <Card variant="glass" className="p-4 flex items-center justify-between bg-gradient-to-br from-blue-50/50 to-blue-100/30 dark:from-blue-900/20 dark:to-blue-800/10 border-blue-200/50 dark:border-blue-900/30">
                         <div>
-                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">کل ورزشکاران</p>
-                            <h3 className="text-2xl font-black text-gray-900 dark:text-white">{stats.total}</h3>
+                            <p className="text-sm font-bold text-blue-700 dark:text-blue-400">کل ورزشکاران</p>
+                            <h3 className="text-3xl font-black text-gray-900 dark:text-white">{stats.total}</h3>
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200 dark:shadow-none">
                             <Users size={24} />
                         </div>
                     </Card>
-                    <Card className="p-4 flex items-center justify-between border-none bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 dark:from-emerald-500/20 dark:to-emerald-600/10 backdrop-blur-sm">
+                    <Card variant="glass" className="p-4 flex items-center justify-between bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 dark:from-emerald-900/20 dark:to-emerald-800/10 border-emerald-200/50 dark:border-emerald-900/30">
                         <div>
-                            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">فعال</p>
-                            <h3 className="text-2xl font-black text-gray-900 dark:text-white">{stats.active}</h3>
+                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">فعال</p>
+                            <h3 className="text-3xl font-black text-gray-900 dark:text-white">{stats.active}</h3>
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-success flex items-center justify-center text-white shadow-lg shadow-emerald-200 dark:shadow-none">
                             <UserCheck size={24} />
                         </div>
                     </Card>
-                    <Card className="p-4 flex items-center justify-between border-none bg-gradient-to-br from-gray-500/10 to-gray-600/5 dark:from-gray-500/20 dark:to-gray-600/10 backdrop-blur-sm">
+                    <Card variant="glass" className="p-4 flex items-center justify-between bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-900/20 dark:to-gray-800/10 border-gray-200/50 dark:border-gray-900/30">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">بایگانی شده</p>
-                            <h3 className="text-2xl font-black text-gray-900 dark:text-white">{stats.archived}</h3>
+                            <p className="text-sm font-bold text-gray-700 dark:text-gray-400">بایگانی شده</p>
+                            <h3 className="text-3xl font-black text-gray-900 dark:text-white">{stats.archived}</h3>
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-500/20 flex items-center justify-center text-gray-600 dark:text-gray-400">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white shadow-lg shadow-gray-200 dark:shadow-none">
                             <UserX size={24} />
                         </div>
                     </Card>
@@ -99,12 +99,12 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
             </div>
 
             {/* Controls */}
-            <Card className="p-4 flex flex-col lg:flex-row gap-4 sticky top-4 z-10 backdrop-blur-xl bg-white/80 dark:bg-dark-800/80 border border-gray-200/50 dark:border-dark-700/50 shadow-lg">
+            <Card variant="glass" className="p-5 flex flex-col lg:flex-row gap-4 sticky top-4 z-10 border-white/20 dark:border-white/5 bg-white/70 dark:bg-dark-800/60 shadow-xl dark:shadow-2xl backdrop-blur-2xl">
                 <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" size={20} />
                     <Input
                         placeholder="جستجو نام..."
-                        className="pr-10 h-10 bg-transparent border-gray-200 dark:border-dark-600 focus:bg-white dark:focus:bg-dark-900"
+                        className="pr-10 h-10 bg-white/50 dark:bg-dark-700/50 border-gray-200 dark:border-dark-600 focus:bg-white dark:focus:bg-dark-800 text-gray-900 dark:text-white"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -114,7 +114,7 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as any)}
-                        className="h-10 px-3 rounded-xl border border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="h-10 px-3 rounded-xl border-2 border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-gray-700 dark:text-gray-200"
                     >
                         <option value="active">فعال</option>
                         <option value="archived">بایگانی</option>
@@ -124,7 +124,7 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
                     <select
                         value={genderFilter}
                         onChange={(e) => setGenderFilter(e.target.value as any)}
-                        className="h-10 px-3 rounded-xl border border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="h-10 px-3 rounded-xl border-2 border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-gray-700 dark:text-gray-200"
                     >
                         <option value="all">همه جنسیت‌ها</option>
                         <option value="Male">آقا</option>
@@ -134,7 +134,7 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="h-10 px-3 rounded-xl border border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="h-10 px-3 rounded-xl border-2 border-gray-200 dark:border-dark-600 bg-white dark:bg-dark-800 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-gray-700 dark:text-gray-200"
                     >
                         <option value="name">نام</option>
                         <option value="joinDate">تاریخ عضویت</option>
@@ -151,9 +151,10 @@ export const AthletesView: React.FC<AthletesViewProps> = ({
 
                     return (
                         <Card
+                            variant="glass"
                             key={athlete.id}
                             onClick={() => setSelectedAthlete(athlete.id)}
-                            className="group relative overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 border-gray-100 dark:border-dark-700"
+                            className="group relative overflow-hidden cursor-pointer hover:shadow-2xl dark:hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-white/40 dark:border-white/10 stagger-item"
                             style={{ animationDelay: `${index * 50}ms` }}
                         >
                             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10" />

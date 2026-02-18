@@ -1,13 +1,13 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import jalaali from "jalaali-js";
+import { toJalaali, toGregorian } from "jalaali-js";
 
-interface PersianCalendarProps {
+interface JalaliCalendarProps {
   className?: string;
 }
 
-const PersianCalendar: React.FC<PersianCalendarProps> = ({ className = "" }) => {
-  const [currentMonth, setCurrentMonth] = React.useState(0);
+const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
+  const [currentMonth, setCurrentMonth] = useState(0);
 
   const jalaliMonths = [
     "فروردین",
@@ -29,46 +29,30 @@ const PersianCalendar: React.FC<PersianCalendarProps> = ({ className = "" }) => 
   // Get today's Jalali date
   const today = useMemo(() => {
     const now = new Date();
-    const { jy, jm, jd } = jalaali.toJalaali(
+    const jalali = toJalaali(
       now.getFullYear(),
       now.getMonth() + 1,
       now.getDate()
     );
-    return { year: jy, month: jm, day: jd };
+    return jalali;
   }, []);
 
-  // Get Gregorian date from Jalali
-  const jalaliToGregorian = (jy: number, jm: number, jd: number): Date => {
-    const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
-    return new Date(gy, gm - 1, gd);
-  };
-
   // Get the first day of the selected Jalali month
-  const getFirstDayOfMonth = (year: number, month: number): number => {
-    const firstDay = jalaliToGregorian(year, month, 1);
-    return firstDay.getDay();
+  const getFirstDayOfMonth = (jy: number, jm: number): number => {
+    const gregorian = toGregorian(jy, jm, 1);
+    const date = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd);
+    return date.getDay();
   };
 
   // Get days in Jalali month
-  const getDaysInMonth = (month: number): number => {
-    if (month <= 6) return 31;
-    if (month < 12) return 30;
-    return 29; // Esfand (can be 29 or 30 in leap years)
+  const getDaysInMonth = (jm: number): number => {
+    if (jm <= 6) return 31;
+    if (jm < 12) return 30;
+    return 29; // Esfand
   };
 
-  const selectedYear = today.year;
-  const selectedMonth = today.month + currentMonth;
-
-  let displayYear = selectedYear;
-  let displayMonth = selectedMonth;
-
-  if (displayMonth > 12) {
-    displayMonth -= 12;
-    displayYear += 1;
-  } else if (displayMonth < 1) {
-    displayMonth += 12;
-    displayYear -= 1;
-  }
+  const displayYear = today.jy + Math.floor(currentMonth / 12);
+  const displayMonth = ((today.jm - 1 + (currentMonth % 12)) % 12) + 1;
 
   const firstDay = getFirstDayOfMonth(displayYear, displayMonth);
   const daysInMonth = getDaysInMonth(displayMonth);
@@ -128,7 +112,9 @@ const PersianCalendar: React.FC<PersianCalendarProps> = ({ className = "" }) => 
               aspect-square flex items-center justify-center rounded-lg text-sm font-semibold
               transition-all duration-200
               ${
-                day === today.day && displayMonth === today.month && displayYear === today.year
+                day === today.jd &&
+                displayMonth === today.jm &&
+                displayYear === today.jy
                   ? "bg-white text-blue-600 shadow-lg scale-105"
                   : "text-blue-50 hover:bg-white/20"
               }
@@ -142,11 +128,11 @@ const PersianCalendar: React.FC<PersianCalendarProps> = ({ className = "" }) => 
       {/* Footer with today's info */}
       <div className="mt-4 pt-4 border-t border-white/20 text-center text-xs text-blue-100 relative z-10">
         <p className="font-medium">
-          {String(today.day).padStart(2, '0')}/{String(today.month).padStart(2, '0')}/{today.year}
+          {String(today.jd).padStart(2, "0")}/{String(today.jm).padStart(2, "0")}/{today.jy}
         </p>
       </div>
     </div>
   );
 };
 
-export default PersianCalendar;
+export default JalaliCalendar;

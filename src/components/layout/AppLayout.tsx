@@ -24,7 +24,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
   }) => {
     return (
       <div
-        className={`flex h-screen w-screen overflow-hidden bg-gray-100 dark:bg-dark-900 font-sans ${
+        className={`flex h-screen w-screen overflow-hidden bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:bg-gradient-to-br dark:from-dark-900 dark:via-dark-800 dark:to-dark-900 font-sans transition-colors duration-300 ${
           isDarkMode ? "dark" : ""
         }`}
         dir="rtl"
@@ -37,7 +37,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         />
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#f8fafc] dark:bg-dark-90 transition-colors duration-300">
+        <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:bg-gradient-to-br dark:from-dark-900 dark:via-dark-800 dark:to-dark-900 transition-colors duration-300">
           {/* Mobile Header */}
           <MobileHeader
             currentView={currentView}

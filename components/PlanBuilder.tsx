@@ -41,6 +41,7 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
   const [name, setName] = useState(
     initialPlan?.name || `برنامه جدید برای ${athlete.fullName}`
   );
+  const [notes, setNotes] = useState(initialPlan?.notes || '');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   // Initialize with 7 generic days or the existing plan's days
   const [days, setDays] = useState<WorkoutDay[]>(
@@ -188,6 +189,7 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
       name,
       startDate: new Date().toISOString(),
       days,
+      notes,
       created_at: initialPlan?.created_at || Date.now(),
     });
 
@@ -240,30 +242,46 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 pb-24">
-        <div className="bg-white dark:bg-dark-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700 animate-slide-up">
-          <Label className="text-base text-gray-800 dark:text-gray-200">
-            عنوان برنامه
-          </Label>
-          <Input
-            value={name}
-            onChange={(e) => {
-              handleNameChange(e.target.value);
-              // Clear the error for this field when user starts typing
-              if (errors.name) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.name;
-                  return newErrors;
-                });
-              }
-            }}
-            className={`text-lg font-bold mt-2 h-12 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 ${
-              errors.name ? "border-red-500" : ""
-            }`}
-          />
-          {errors.name && (
-            <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-          )}
+        <div className="bg-white dark:bg-dark-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700 animate-slide-up space-y-4">
+          <div>
+            <Label className="text-base text-gray-800 dark:text-gray-200">
+              عنوان برنامه
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => {
+                handleNameChange(e.target.value);
+                if (errors.name) {
+                  setErrors((prev) => {
+                    const newErrors = { ...prev };
+                    delete newErrors.name;
+                    return newErrors;
+                  });
+                }
+              }}
+              className={`text-lg font-bold mt-2 h-12 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 ${
+                errors.name ? "border-red-500" : ""
+              }`}
+            />
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-base text-gray-800 dark:text-gray-200 flex items-center gap-2">
+              <StickyNote size={18} />
+              توضیحات
+            </Label>
+            <textarea
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+              placeholder="نکات مربی، هدف‌های برنامه، یادداشت‌های خاص..."
+              className="w-full mt-2 p-3 rounded-2xl border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:border-blue-500 dark:text-white text-sm resize-none h-24 transition-all"
+            />
+          </div>
         </div>
 
         <div className="space-y-4">

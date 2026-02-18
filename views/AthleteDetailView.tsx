@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Athlete, WorkoutPlan, NutritionPlan, Measurement, View, PersonalRecord, Goal, WorkoutLogEntry } from '../types';
 import { Card, Button, Input, Label, Modal } from '../components/UI';
+import JalaliDatePicker from '../src/components/shared/JalaliDatePicker';
 import {
     Activity, TrendingUp, TrendingDown, Calendar, Trophy, ChevronRight, Plus,
     BarChart3, PieChart, Clock, Trash2 as Trash, Edit2 as Edit, ChevronDown, ChevronUp,
@@ -31,6 +32,7 @@ interface AthleteDetailViewProps {
     setEditingAthlete: (athlete: Athlete) => void;
     setIsAthleteModalOpen: (open: boolean) => void;
     setCurrentView: (view: View) => void;
+    setEditingPlan: (plan: WorkoutPlan | null) => void;
     setPlanToExport: (plan: WorkoutPlan) => void;
     setDietToExport: (plan: NutritionPlan | null) => void;
     setProgressToExport: (athlete: Athlete | null) => void; // New prop
@@ -54,6 +56,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
     setEditingAthlete,
     setIsAthleteModalOpen,
     setCurrentView,
+    setEditingPlan,
     setPlanToExport,
     setDietToExport,
     setProgressToExport,
@@ -62,6 +65,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
     refreshData,
     addToast
 }) => {
+    const [viewingPlan, setViewingPlan] = useState<WorkoutPlan | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [isAddMeasurementOpen, setIsAddMeasurementOpen] = useState(false);
     const [isAddPROpen, setIsAddPROpen] = useState(false);
@@ -70,6 +74,11 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
     const [aiInsights, setAiInsights] = useState<string>('');
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+
+    // Date picker states
+    const [measurementDate, setMeasurementDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [prDate, setPRDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [goalDeadlineDate, setGoalDeadlineDate] = useState<string>('');
 
     // Photo Comparison State
     const [compareDate1, setCompareDate1] = useState<string>('');
@@ -929,8 +938,14 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                                         <p className="text-sm text-gray-500 mt-1">{plan.days.length} روز تمرینی • تاریخ: {new Date(plan.created_at).toLocaleDateString('fa-IR')}</p>
                                     </div>
                                     <div className="p-4 flex items-center gap-2 border-t md:border-t-0 md:border-r border-gray-100 dark:border-dark-700">
+                                        <Button size="sm" variant="ghost" onClick={() => setViewingPlan(plan)}>
+                                            <ArrowRight size={18} />
+                                        </Button>
                                         <Button size="sm" variant="ghost" onClick={() => { setPlanToExport(plan); setDietToExport(null); setIsExportModalOpen(true); }}>
                                             <Share2 size={18} />
+                                        </Button>
+                                        <Button size="sm" variant="secondary" onClick={() => { setEditingPlan(plan); setCurrentView('plan-builder'); }}>
+                                            <Edit size={16} />
                                         </Button>
                                         <Button size="sm" variant="danger" onClick={() => showConfirm('حذف برنامه', 'آیا از حذف این برنامه مطمئن هستید؟', async () => { await deletePlan(plan.id); refreshData(); })}>
                                             <Trash size={18} />
@@ -1016,11 +1031,16 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
             {/* Modals */}
 
             {/* Add Measurement Modal */}
-            <Modal isOpen={isAddMeasurementOpen} onClose={() => setIsAddMeasurementOpen(false)} title="اندازه‌گیری جدید">
+            <Modal isOpen={isAddMeasurementOpen} onClose={() => { setIsAddMeasurementOpen(false); setMeasurementDate(new Date().toISOString().split('T')[0]); }} title="اندازه‌گیری جدید">
                 <form onSubmit={handleAddMeasurement} className="space-y-4">
                     <div>
                         <Label>تاریخ</Label>
-                        <Input type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                        <JalaliDatePicker 
+                            value={measurementDate}
+                            onChange={setMeasurementDate}
+                            placeholder="انتخاب تاریخ اندازه‌گیری"
+                        />
+                        <input type="hidden" name="date" value={measurementDate} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1088,7 +1108,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
             </Modal>
 
             {/* Add PR Modal */}
-            <Modal isOpen={isAddPROpen} onClose={() => setIsAddPROpen(false)} title="رکورد شخصی جدید">
+            <Modal isOpen={isAddPROpen} onClose={() => { setIsAddPROpen(false); setPRDate(new Date().toISOString().split('T')[0]); }} title="رکورد شخصی جدید">
                 <form onSubmit={handleAddPR} className="space-y-4">
                     <div>
                         <Label>نام تمرین *</Label>
@@ -1106,7 +1126,13 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                     </div>
                     <div>
                         <Label>تاریخ *</Label>
-                        <Input type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                        <JalaliDatePicker 
+                            value={prDate}
+                            onChange={setPRDate}
+                            placeholder="انتخاب تاریخ رکورد"
+                            required={true}
+                        />
+                        <input type="hidden" name="date" value={prDate} />
                     </div>
                     <div>
                         <Label>یادداشت</Label>
@@ -1117,7 +1143,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
             </Modal>
 
             {/* Add Goal Modal */}
-            <Modal isOpen={isAddGoalOpen} onClose={() => setIsAddGoalOpen(false)} title="هدف جدید">
+            <Modal isOpen={isAddGoalOpen} onClose={() => { setIsAddGoalOpen(false); setGoalDeadlineDate(''); }} title="هدف جدید">
                 <form onSubmit={handleAddGoal} className="space-y-4">
                     <div>
                         <Label>عنوان هدف *</Label>
@@ -1139,7 +1165,12 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                     </div>
                     <div>
                         <Label>موعد (اختیاری)</Label>
-                        <Input type="date" name="deadline" />
+                        <JalaliDatePicker 
+                            value={goalDeadlineDate}
+                            onChange={setGoalDeadlineDate}
+                            placeholder="انتخاب موعد تحقق هدف"
+                        />
+                        <input type="hidden" name="deadline" value={goalDeadlineDate} />
                     </div>
                     <Button type="submit" className="w-full">ایجاد هدف</Button>
                 </form>
@@ -1159,6 +1190,36 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* View Plan Modal */}
+            <Modal isOpen={!!viewingPlan} onClose={() => setViewingPlan(null)} title={viewingPlan?.name || 'مشاهده برنامه'}>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                    <p className="text-sm text-gray-500">{viewingPlan?.notes || 'بدون توضیحات'}</p>
+                    {viewingPlan?.days?.map((d, idx) => (
+                        <div key={d.id || idx} className="p-3 bg-gray-50 dark:bg-dark-800 rounded-xl border border-gray-100 dark:border-dark-700">
+                            <div className="flex justify-between items-center mb-2">
+                                <h5 className="font-bold">{d.dayName}</h5>
+                                <span className="text-xs text-gray-500">{d.isRestDay ? 'روز استراحت' : `${d.exercises.length} حرکت`}</span>
+                            </div>
+                            {!d.isRestDay && d.exercises.length > 0 ? (
+                                <div className="space-y-2">
+                                    {d.exercises.map((ex, i) => (
+                                        <div key={i} className="flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold">{ex.exerciseName}</p>
+                                                <p className="text-xs text-gray-500">{ex.sets} ست • {ex.reps} تکرار • {ex.rest || '-' } استراحت</p>
+                                            </div>
+                                            {ex.notes && <p className="text-xs text-amber-600">{ex.notes}</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-400">روز استراحت یا هیچ حرکتی ثبت نشده است</p>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </Modal>
         </div >
     );

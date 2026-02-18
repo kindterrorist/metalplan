@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {/* Charts & Activity Split */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Goal Distribution Chart */}
-                        <Card className="p-6 flex flex-col justify-between min-h-[400px] relative overflow-hidden group hover:shadow-md transition-all">
+                        <Card variant="glass" className="p-6 flex flex-col justify-between min-h-[400px] relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
                             <div className="relative z-10 w-full">
                                 <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-1">اهداف ورزشکاران</h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">توزیع آماری بر اساس هدف تمرینی</p>
@@ -246,7 +246,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </Card>
 
                         {/* Activity Feed */}
-                        <Card className="p-0 overflow-hidden flex flex-col h-full max-h-[400px] hover:shadow-md transition-all">
+                        <Card variant="glass" className="p-0 overflow-hidden flex flex-col h-full max-h-[400px] hover:shadow-2xl transition-all duration-300">
                             <div className="p-6 border-b border-gray-100 dark:border-dark-700 flex justify-between items-center bg-gray-50/50 dark:bg-dark-900/50 backdrop-blur-xl sticky top-0 z-10">
                                 <div>
                                     <h3 className="font-bold text-xl text-gray-900 dark:text-white">فعالیت‌ها</h3>
@@ -285,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                     {/* Top Performers Widget (New) */}
                     {topPerformers.length > 0 && (
-                        <Card className="p-0 overflow-hidden bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/10 dark:to-amber-900/10 border-yellow-100 dark:border-yellow-900/30">
+                        <Card variant="glass" className="p-0 overflow-hidden bg-gradient-to-br from-amber-50/50 to-yellow-50/50 dark:from-amber-900/10 dark:to-yellow-900/10 border-amber-200/50 dark:border-amber-900/30">
                             <div className="p-5 border-b border-yellow-100 dark:border-yellow-900/30">
                                 <h3 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
                                     <Trophy size={20} className="text-amber-500" /> قهرمانان تمرین
@@ -311,7 +311,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     )}
 
                     {/* Needs Attention Widget */}
-                    <Card className="p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 border-orange-100 dark:border-orange-900/30 relative overflow-hidden">
+                    <Card variant="glass" className="p-6 bg-gradient-to-br from-rose-50/50 to-orange-50/50 dark:from-rose-900/10 dark:to-orange-900/10 border-rose-200/50 dark:border-rose-900/30 relative overflow-hidden hover:shadow-xl transition-all duration-300">
                         <div className="flex items-center gap-3 mb-4 relative z-10">
                             <div className="w-12 h-12 bg-white dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center shadow-sm border border-orange-100 dark:border-orange-900/30 animate-pulse">
                                 <AlertCircle size={24} />
