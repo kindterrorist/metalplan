@@ -1,25 +1,142 @@
-# Logs
-logs
-*.log
+# Dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Production builds
+/dist/
+/dist-react/
+/build/
+
+# Environment variables
+.env*
+!.env.example
+
+# Database files
+*.db
+*.db-journal
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Temporary folders
+tmp/
+temp/
+
+# Electron Builder
+release/
+*.exe
+*.msi
+*.zip
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.pkg
+
+# User-specific files
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.kilocodemodes
+# Cache directories
+.cache/
+.tscache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Platform-specific files
+*.dll
+*.so
+*.dylib
+
+# Backup files
+*~
+*.bak
+*.tmp
+
+# Local configuration files
+config.local
+*.local.*
+
+# Electron-related
+electron/out/
+
+# Lock files for dependency managers other than npm/yarn
+*.lock
+
+# Browser-sync
+.browser-sync/
+
+# Webpack
+webpack-stats.json
+
+# Next.js
+.next/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Vue.js
+.vuepress/dist
+
+# Testing
+coverage/
+cypress/screenshots/
+cypress/videos/
+
+# Sensitive files
+secrets.json
+credentials.json
+keys.json
+
+# Large files (should use Git LFS if needed)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.ico
+*.mp4
+*.avi
+*.mov
+*.pdf
+*.zip
+*.tar
+*.gz
+
+# Development specific
+debug.log
+npm-shrinkwrap.json
