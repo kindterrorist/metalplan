@@ -137,6 +137,10 @@ keys.json
 *.tar
 *.gz
 
+# Markdown files (except README.md)
+*.md
+!README.md
+
 # Development specific
 debug.log
 npm-shrinkwrap.json
