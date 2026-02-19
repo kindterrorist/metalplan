@@ -4,49 +4,49 @@ Comprehensive athlete fitness and nutrition planning application built with Reac
 
 ## Features
 
-### 🏋️ Athlete Management
+###  Athlete Management
 - Create and manage athlete profiles with personal information
 - Track measurements, weight, body composition, and photos
 - Monitor personal records and fitness goals
 - Record mood and energy levels
 
-### 💪 Workout Planning
+###  Workout Planning
 - Design custom workout plans with detailed exercises
 - Support for multiple exercise types (Machine, Dumbbell, Barbell, Bodyweight, Cable)
 - Organize exercises by muscle groups (Chest, Back, Shoulders, Arms, Legs, Core, Cardio)
 - Flexible day scheduling with rest day options
 - Detailed exercise sets, reps, rest periods, and notes
 
-### 🥗 Nutrition Planning
+###  Nutrition Planning
 - Create personalized nutrition plans with meal scheduling
 - Comprehensive food library with nutritional information
 - Track calories, proteins, carbs, and fats
 - Plan meals by time of day (Breakfast, Pre-workout, etc.)
 
-### 🤖 AI Integration
+###  AI Integration
 - Gemini-powered AI suggestions for workout plans
 - Exercise recommendations based on target muscle groups
 - Smart plan generation based on athlete profiles and goals
 
-### 📊 Progress Tracking
+###  Progress Tracking
 - Visualize progress with charts and graphs
 - Track measurements over time
 - Photo progress comparison (front, side, back views)
 - Workout and nutrition adherence monitoring
 
-### 🎨 Customization & Export
+###  Customization & Export
 - Export workout plans, nutrition plans, and progress reports
 - Multiple export formats (HTML, PNG)
 - Customizable themes and color schemes
 - Professional report templates with trainer branding
 
-### 💾 Data Management
+###  Data Management
 - Local SQLite database storage
 - Automatic backup and restore functionality
 - Data synchronization across sessions
 - Secure data management with encryption
 
-### 🌐 Multi-platform Support
+###  Multi-platform Support
 - Cross-platform desktop application (Windows, macOS, Linux)
 - Responsive UI optimized for both desktop and mobile
 - RTL (right-to-left) support for Persian language
