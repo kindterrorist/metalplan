@@ -177,21 +177,23 @@ export const saveTrainerProfile = async (
 // Food Library functions
 export const getFoodLibraryItems = async (): Promise<FoodLibraryItem[]> => {
   if (isElectron()) return window.electron.getFoodLibraryItems();
-  // For browser development, return empty array or mock data
-  return [];
+  // For browser development
+  return Promise.resolve(MockDB.getItem<FoodLibraryItem>("foodLibrary"));
 };
 
 export const saveFoodLibraryItem = async (
   item: FoodLibraryItem
 ): Promise<FoodLibraryItem> => {
   if (isElectron()) return window.electron.saveFoodLibraryItem(item);
-  // For browser development, return the item as if it was saved
-  return item;
+  // For browser development
+  MockDB.saveItem("foodLibrary", item);
+  return Promise.resolve(item);
 };
 
 export const deleteFoodLibraryItem = async (id: string): Promise<void> => {
   if (isElectron()) return window.electron.deleteFoodLibraryItem(id);
-  // For browser development, do nothing
+  // For browser development
+  MockDB.deleteItem("foodLibrary", id);
   return Promise.resolve();
 };
 
@@ -199,8 +201,14 @@ export const searchFoodLibrary = async (
   query: string
 ): Promise<FoodLibraryItem[]> => {
   if (isElectron()) return window.electron.searchFoodLibrary(query);
-  // For browser development, return empty array
-  return [];
+  // For browser development
+  const items = MockDB.getItem<FoodLibraryItem>("foodLibrary");
+  const lowerQuery = query.toLowerCase();
+  return items.filter(item =>
+    item.name.toLowerCase().includes(lowerQuery) ||
+    (item.category && item.category.toLowerCase().includes(lowerQuery)) ||
+    item.notes.toLowerCase().includes(lowerQuery)
+  );
 };
 
 // Export/Import/Reset functions - These need custom handling

@@ -425,8 +425,8 @@ const FoodLibraryViewComponent: React.FC = () => {
               <Label>دسته</Label>
               <Select
                 value={foodForm.category}
-                onChange={(value) =>
-                  setFoodForm({ ...foodForm, category: value as string })
+                onChange={(e) =>
+                  setFoodForm({ ...foodForm, category: e.target.value })
                 }
               >
                 <option value="">انتخاب دسته</option>
