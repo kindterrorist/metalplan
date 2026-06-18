@@ -1,0 +1,136 @@
+"npm run build:electron
+> metalplans@1.1.0 build:electron
+> vite build && electron-builder
+vite v6.4.1 building for production...
+✓ 2425 modules transformed.
+dist-react/index.html                              1.23 kB │ gzip:   0.58 kB
+dist-react/assets/index-CHHkc2Fy.css              92.62 kB │ gzip:  13.37 kB
+dist-react/assets/plus-BMG2SrYL.js                 0.33 kB │ gzip:   0.25 kB
+dist-react/assets/search-DB4VSlzt.js               0.34 kB │ gzip:   0.27 kB
+dist-react/assets/droplet-0rEEDjsj.js              0.38 kB │ gzip:   0.30 kB
+dist-react/assets/activity-CA1l8nSP.js             0.41 kB │ gzip:   0.31 kB
+dist-react/assets/pen-9hw0bGcb.js                  0.41 kB │ gzip:   0.31 kB
+dist-react/assets/calendar-BA2Kkjy2.js             0.43 kB │ gzip:   0.31 kB
+dist-react/assets/image-D2n9RY8g.js                0.44 kB │ gzip:   0.33 kB
+dist-react/assets/save-B5jGy6PH.js                 0.50 kB │ gzip:   0.33 kB
+dist-react/assets/trash-2-DjsBr0Ip.js              0.50 kB │ gzip:   0.32 kB
+dist-react/assets/file-text-Hl5fnzlO.js            0.56 kB │ gzip:   0.36 kB
+dist-react/assets/sticky-note-nX2wN3rG.js          0.95 kB │ gzip:   0.39 kB
+dist-react/assets/user-LvqUSY5O.js                 0.97 kB │ gzip:   0.43 kB
+dist-react/assets/wheat-d5tfx_9J.js                1.38 kB │ gzip:   0.53 kB
+dist-react/assets/ExercisesView-BCKlym3P.js        8.92 kB │ gzip:   3.18 kB
+dist-react/assets/AthletesView-B3M1rk8h.js        10.49 kB │ gzip:   2.98 kB
+dist-react/assets/FoodLibraryView-B0muR4-d.js     11.50 kB │ gzip:   3.79 kB
+dist-react/assets/NutritionBuilder-DHEf799h.js    15.99 kB │ gzip:   4.67 kB
+dist-react/assets/PlanBuilder-DxVLnzHw.js         18.09 kB │ gzip:   5.26 kB
+dist-react/assets/DashboardView-CLsx6yrh.js       23.08 kB │ gzip:   6.22 kB
+dist-react/assets/SettingsView-BDI4nI8o.js        31.67 kB │ gzip:   7.87 kB
+dist-react/assets/AthleteDetailView-CoLNouka.js  133.71 kB │ gzip:  31.48 kB
+dist-react/assets/ToolsView-CGSAYFwj.js          251.99 kB │ gzip:  46.89 kB
+dist-react/assets/PieChart-PwdNw7S_.js           314.69 kB │ gzip:  96.40 kB
+dist-react/assets/index-BAOqi8vT.js              608.05 kB │ gzip: 165.63 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.74s
+  • electron-builder  version=26.0.12 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • @electron/rebuild already used by electron-builder, please consider to remove excess dependency from devDependencies
+To ensure your native dependencies are always matched electron version, simply add script `"postinstall": "electron-builder install-app-deps" to your `package.json`
+  • writing effective config  file=dist\builder-effective-config.yaml
+  • executing @electron/rebuild  electronVersion=39.2.6 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • preparing       moduleName=better-sqlite3 arch=x64
+  • finished        moduleName=better-sqlite3 arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=39.2.6 appOutDir=dist\win-unpacked
+(node:22648) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  • updating asar integrity executable resource  executablePath=dist\win-unpacked\MetalPlans.exe
+  • signing with signtool.exe  path=dist\win-unpacked\MetalPlans.exe
+  • building        target=nsis file=dist\MetalPlans-1.1.0.exe archs=x64 oneClick=false perMachine=false
+  • signing with signtool.exe  path=dist\win-unpacked\resources\elevate.exe
+  ⨯ C:\Users\KindTerrorist\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+Output:
+Command line defined: "APP_ID=com.metalplans.metalplans"
+Command line defined: "APP_GUID=9db858b5-ab65-5f44-a6e0-0934fc388e19"
+Command line defined: "UNINSTALL_APP_KEY=9db858b5-ab65-5f44-a6e0-0934fc388e19"
+Command line defined: "PRODUCT_NAME=MetalPlans"
+Command line defined: "PRODUCT_FILENAME=MetalPlans"
+Command line defined: "APP_FILENAME=MetalPlans"
+Command line defined: "APP_DESCRIPTION=Comprehensive athlete fitness and nutrition planning application"
+Command line defined: "VERSION=1.1.0"
+Command line defined: "PROJECT_DIR=F:\metal\v2"
+Command line defined: "BUILD_RESOURCES_DIR=F:\metal\v2\build"
+Command line defined: "APP_PACKAGE_NAME=metalplans"
+Command line defined: "MUI_ICON=F:\metal\v2\build\icon.png"
+Command line defined: "MUI_UNICON=F:\metal\v2\build\icon.png"
+Command line defined: "APP_64=F:\metal\v2\dist\metalplans-1.1.0-x64.nsis.7z"
+Command line defined: "APP_64_NAME=metalplans-1.1.0-x64.nsis.7z"
+Command line defined: "APP_64_HASH=E835991EF384413437CB19ADCE3401DEA2479759FBD70FEBF2249C9ADEB594077B207E20222CA7C3DAF460EBFABC861A7A20F8CC93F1DC3F8DC21F4A3EC56475"
+Command line defined: "APP_64_UNPACKED_SIZE=429598"
+Command line defined: "COMPANY_NAME=MetalPlans Team"
+Command line defined: "APP_INSTALLER_STORE_FILE=metalplans-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "MULTIUSER_INSTALLMODE_ALLOW_ELEVATION"
+Command line defined: "INSTALL_MODE_PER_ALL_USERS_REQUIRED"
+Command line defined: "allowToChangeInstallationDirectory"
+Command line defined: "SHORTCUT_NAME=MetalPlans"
+Command line defined: "UNINSTALL_DISPLAY_NAME=MetalPlans"
+Command line defined: "MUI_WELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "MUI_UNWELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "UNINSTALLER_ICON=F:\metal\v2\build\icon.png"
+Command line defined: "ESTIMATED_SIZE=429597"
+Command line defined: "COMPRESS=auto"
+Command line defined: "BUILD_UNINSTALLER"
+Command line defined: "UNINSTALLER_OUT_FILE=F:\metal\v2\dist\__uninstaller-nsis-metalplans.exe"
+Processing config: C:\Users\KindTerrorist\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)
+Error output:
+Error while loading icon from "F:\metal\v2\build\icon.png": invalid icon file
+Error in macro MUI_INTERFACE on macroline 87
+Error in macro MUI_UNPAGE_INIT on macroline 7
+Error in macro MUI_UNPAGE_WELCOME on macroline 5
+!include: error in script: "assistedInstaller.nsh" on line 70
+Error in script "<stdin>" on line 110 -- aborting creation process
+  failedTask=build stackTrace=Error: C:\Users\KindTerrorist\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+Output:
+Command line defined: "APP_ID=com.metalplans.metalplans"
+Command line defined: "APP_GUID=9db858b5-ab65-5f44-a6e0-0934fc388e19"
+Command line defined: "UNINSTALL_APP_KEY=9db858b5-ab65-5f44-a6e0-0934fc388e19"
+Command line defined: "PRODUCT_NAME=MetalPlans"
+Command line defined: "PRODUCT_FILENAME=MetalPlans"
+Command line defined: "APP_FILENAME=MetalPlans"
+Command line defined: "APP_DESCRIPTION=Comprehensive athlete fitness and nutrition planning application"
+Command line defined: "VERSION=1.1.0"
+Command line defined: "PROJECT_DIR=F:\metal\v2"
+Command line defined: "BUILD_RESOURCES_DIR=F:\metal\v2\build"
+Command line defined: "APP_PACKAGE_NAME=metalplans"
+Command line defined: "MUI_ICON=F:\metal\v2\build\icon.png"
+Command line defined: "MUI_UNICON=F:\metal\v2\build\icon.png"
+Command line defined: "APP_64=F:\metal\v2\dist\metalplans-1.1.0-x64.nsis.7z"
+Command line defined: "APP_64_NAME=metalplans-1.1.0-x64.nsis.7z"
+Command line defined: "APP_64_HASH=E835991EF384413437CB19ADCE3401DEA2479759FBD70FEBF2249C9ADEB594077B207E20222CA7C3DAF460EBFABC861A7A20F8CC93F1DC3F8DC21F4A3EC56475"
+Command line defined: "APP_64_UNPACKED_SIZE=429598"
+Command line defined: "COMPANY_NAME=MetalPlans Team"
+Command line defined: "APP_INSTALLER_STORE_FILE=metalplans-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "MULTIUSER_INSTALLMODE_ALLOW_ELEVATION"
+Command line defined: "INSTALL_MODE_PER_ALL_USERS_REQUIRED"
+Command line defined: "allowToChangeInstallationDirectory"
+Command line defined: "SHORTCUT_NAME=MetalPlans"
+Command line defined: "UNINSTALL_DISPLAY_NAME=MetalPlans"
+Command line defined: "MUI_WELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "MUI_UNWELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "UNINSTALLER_ICON=F:\metal\v2\build\icon.png"
+Command line defined: "ESTIMATED_SIZE=429597"
+Command line defined: "COMPRESS=auto"
+Command line defined: "BUILD_UNINSTALLER"
+Command line defined: "UNINSTALLER_OUT_FILE=F:\metal\v2\dist\__uninstaller-nsis-metalplans.exe"
+Processing config: C:\Users\KindTerrorist\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)"

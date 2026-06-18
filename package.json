@@ -3,7 +3,7 @@
   "description": "Comprehensive athlete fitness and nutrition planning application",
   "author": "MetalPlans Team",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -30,11 +30,14 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.5.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "wait-on": "^9.0.3"
@@ -54,18 +57,23 @@
     "win": {
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}.${ext}"
+      "icon": "build/icon.png"
     },
     "nsis": {
-      "installerIcon": "build/icon.png",
-      "uninstallerIcon": "build/icon.png",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "uninstallDisplayName": "MetalPlans",
       "oneClick": false,
       "allowElevation": true,

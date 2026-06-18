@@ -757,7 +757,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 نسخه
                               </span>
                               <span className="font-bold text-gray-800 dark:text-white">
-                                ۱.۰.۰
+                                ۱.۱.۰
                               </span>
                             </div>
                             <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
@@ -853,7 +853,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         نسخه جدید در دسترس است
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                        نسخه ۱.۲ شامل ویژگی‌های جدید و رفع مشکلات
+                        نسخه ۱.۱ شامل ویژگی‌های جدید و رفع مشکلات
                       </p>
                       <Button
                         type="button"

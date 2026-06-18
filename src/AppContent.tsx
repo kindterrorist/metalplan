@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, Suspense } from "react";
 import { View } from "../types";
 import { useAppContext } from "./contexts/AppContext";
 import { ToastContainer } from "../components/UI";
@@ -102,13 +102,6 @@ const AppContent: React.FC = () => {
     athletes.find((a) => a.id === selectedAthleteId) || null;
   const editingAthlete =
     athletes.find((a) => a.id === editingAthleteId) || null;
-
-  // Handle view changes
-  useEffect(() => {
-    if (currentView !== "plan-builder" && currentView !== "nutrition-builder") {
-      setSelectedAthleteId(null);
-    }
-  }, [currentView, setSelectedAthleteId]);
 
   // Check if we're in builder mode
   const isInBuilderMode =
