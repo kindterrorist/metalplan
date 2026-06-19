@@ -196,6 +196,15 @@ export interface ExportConfig {
   includePhotos?: boolean;
   photoAngles?: ("front" | "side" | "back")[];
   photoSelectionMode?: "first_last" | "latest" | "all";
+  showPersonalRecords?: boolean;
+  showGoals?: boolean;
+  showAdherence?: boolean;
+  showFullMeasurements?: boolean;
+  showCharts?: boolean;
+  showDietTargets?: boolean;
+  showMealTime?: boolean;
+  showExerciseMetadata?: boolean;
+  showTrainerBio?: boolean;
 }
 
 // Navigation Types

@@ -7,7 +7,7 @@ import {
     Activity, TrendingUp, TrendingDown, Calendar, Trophy, ChevronRight, Plus,
     BarChart3, PieChart, Clock, Trash2 as Trash, Edit2 as Edit, ChevronDown, ChevronUp,
     MoreVertical, Target, Award, Dumbbell, Utensils, AlertCircle, Camera, Image as ImageIcon,
-    ArrowRight, ArrowLeft, Share2, Brain, MessageSquare, Download, Flame, Zap, CheckCircle, Upload, X
+    ArrowRight, ArrowLeft, Share2, Brain, CheckCircle
 } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -29,7 +29,7 @@ interface AthleteDetailViewProps {
     apiKey: string;
     setChartMetric: (metric: string) => void;
     setSelectedAthlete: (athlete: Athlete | null) => void;
-    setEditingAthlete: (athlete: Athlete) => void;
+    setEditingAthlete: (athleteId: string | null) => void;
     setIsAthleteModalOpen: (open: boolean) => void;
     setCurrentView: (view: View) => void;
     setEditingPlan: (plan: WorkoutPlan | null) => void;
@@ -378,7 +378,7 @@ export const AthleteDetailView: React.FC<AthleteDetailViewProps> = ({
                                 <span className="text-sm text-gray-500 dark:text-gray-400">قد:</span>
                                 <span className="font-bold text-lg mr-2 text-gray-900 dark:text-white">{selectedAthlete.height} cm</span>
                             </div>
-                            <div className="px-4 py- bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                            <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                                 <span className="text-sm text-gray-500 dark:text-gray-400">وزن:</span>
                                 <span className="font-bold text-lg mr-2 text-gray-900 dark:text-white">
                                     {latestMeasurement?.weight || '-'} kg

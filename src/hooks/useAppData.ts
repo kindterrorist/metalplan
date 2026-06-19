@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Athlete,
   WorkoutPlan,
@@ -32,17 +32,6 @@ export interface AppDataState {
 
 export interface AppDataActions {
   refreshData: () => Promise<void>;
-  addToast: (
-    title: string,
-    message?: string,
-    type?: "success" | "error" | "info"
-  ) => void;
-  showConfirm: (
-    title: string,
-    message: string,
-    onConfirm: () => void,
-    variant?: "danger" | "primary"
-  ) => void;
   saveAthlete: (athlete: Athlete) => Promise<void>;
   savePlan: (plan: WorkoutPlan) => Promise<void>;
   saveNutritionPlan: (plan: NutritionPlan) => Promise<void>;
@@ -91,31 +80,6 @@ export const useAppData = (): [AppDataState, AppDataActions] => {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
-
-  // Toast and confirm functions would need to be passed from context or props
-  // For now, we'll define them as no-ops or you can integrate with your actual toast/confirm system
-  const addToast = useCallback(
-    (title: string, message?: string, type?: "success" | "error" | "info") => {
-      // Implementation would depend on your toast system
-      console.log(`${type}: ${title}`, message);
-    },
-    []
-  );
-
-  const showConfirm = useCallback(
-    (
-      title: string,
-      message: string,
-      onConfirm: () => void,
-      variant?: "danger" | "primary"
-    ) => {
-      // Implementation would depend on your confirm system
-      if (window.confirm(`${title}: ${message}`)) {
-        onConfirm();
-      }
-    },
-    []
-  );
 
   const handleSaveAthlete = useCallback(
     async (athlete: Athlete) => {
@@ -173,10 +137,8 @@ export const useAppData = (): [AppDataState, AppDataActions] => {
     [refreshData]
   );
 
-  const actions: AppDataActions = {
+  const actions: AppDataActions = useMemo(() => ({
     refreshData,
-    addToast,
-    showConfirm,
     saveAthlete: handleSaveAthlete,
     savePlan: handleSavePlan,
     saveNutritionPlan: handleSaveNutritionPlan,
@@ -184,7 +146,7 @@ export const useAppData = (): [AppDataState, AppDataActions] => {
     deletePlan: handleDeletePlan,
     deleteNutritionPlan: handleDeleteNutritionPlan,
     saveTrainerProfile: handleSaveTrainerProfile,
-  };
+  }), [refreshData, handleSaveAthlete, handleSavePlan, handleSaveNutritionPlan, handleDeleteAthlete, handleDeletePlan, handleDeleteNutritionPlan, handleSaveTrainerProfile]);
 
   return [data, actions];
 };

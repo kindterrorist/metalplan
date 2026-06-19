@@ -156,7 +156,7 @@ function getAthleteMeasurements(athleteId) {
     calves: m.calves,
     mood: m.mood,
     notes: m.notes,
-    photos: m.photos ? JSON.parse(m.photos) : undefined,
+    photos: undefined,
   }));
 }
 

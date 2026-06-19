@@ -75,7 +75,7 @@ const FoodLibraryViewComponent: React.FC = () => {
     loadFoodItems();
   }, []);
 
-  // Filter items based on search query and selected categories
+  // Filter items based on selected categories
   useEffect(() => {
     let filtered = items;
 
@@ -86,19 +86,8 @@ const FoodLibraryViewComponent: React.FC = () => {
       );
     }
 
-    // Apply search query filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          (item.category && item.category.toLowerCase().includes(query)) ||
-          item.notes.toLowerCase().includes(query)
-      );
-    }
-
     setFilteredItems(filtered);
-  }, [searchQuery, selectedCategories, items]);
+  }, [selectedCategories, items]);
 
   const loadFoodItems = async () => {
     try {
@@ -211,7 +200,7 @@ const FoodLibraryViewComponent: React.FC = () => {
       <div className="h-full flex items-center justify-center bg-gray-50/50 dark:bg-dark-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-60 dark:text-gray-400">
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
             در حال بارگذاری...
           </p>
         </div>
@@ -224,7 +213,7 @@ const FoodLibraryViewComponent: React.FC = () => {
       {/* Header */}
       <div className="bg-white/80 dark:bg-dark-800/80 backdrop-blur-md p-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div>
-          <h2 className="text-xl font-black text-gray-90 dark:text-white tracking-tight flex items-center gap-3">
+          <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
             <Utensils className="text-emerald-600" size={28} />
             کتابخانه غذاها
           </h2>
@@ -289,7 +278,7 @@ const FoodLibraryViewComponent: React.FC = () => {
           {selectedCategories.length > 0 && (
             <button
               onClick={() => setSelectedCategories([])}
-              className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-90/30 text-red-700 dark:text-red-30 hover:bg-red-200 dark:hover:bg-red-800/50"
+              className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/50"
             >
               حذف فیلترها
             </button>
@@ -304,7 +293,7 @@ const FoodLibraryViewComponent: React.FC = () => {
                 size={48}
                 className="mx-auto text-gray-300 dark:text-gray-600 mb-4"
               />
-              <h3 className="text-lg font-bold text-gray-500 dark:text-gray-40">
+              <h3 className="text-lg font-bold text-gray-500 dark:text-gray-400">
                 هیچ موردی یافت نشد
               </h3>
               <p className="text-gray-400 dark:text-gray-500 mt-2">
@@ -334,7 +323,7 @@ const FoodLibraryViewComponent: React.FC = () => {
                         {item.name}
                       </h3>
                       {item.category && (
-                        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-80 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
+                        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
                           {item.category}
                         </span>
                       )}

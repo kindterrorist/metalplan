@@ -57,7 +57,7 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
             id: editingEx ? editingEx.id : crypto.randomUUID(),
             name: formData.get('name') as string,
             muscleGroup: formData.get('muscle') as string,
-            type: formData.get('type') as any,
+            type: formData.get('type') as Exercise['type'],
             videoUrl: formData.get('videoUrl') as string,
             description: formData.get('description') as string
         };

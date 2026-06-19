@@ -52,7 +52,7 @@ class BackupManager {
     }
 
     if (this.backupConfig.enabled) {
-      const intervalMs = this.backupConfig.intervalHours * 60 * 1000;
+      const intervalMs = this.backupConfig.intervalHours * 60 * 60 * 1000;
       this.backupInterval = setInterval(() => {
         this.createBackup().catch((error) => {
           console.error("Scheduled backup failed:", error);
@@ -124,19 +124,19 @@ class BackupManager {
   async cleanupOldBackups() {
     try {
       const files = await fs.promises.readdir(this.backupConfig.backupPath);
-      const backupFiles = files
-        .filter(
-          (file) =>
-            file.startsWith("metalplans-backup-") && file.endsWith(".db")
-        )
-        .map((file) => ({
-          name: file,
-          path: path.join(this.backupConfig.backupPath, file),
-          time: fs
-            .statSync(path.join(this.backupConfig.backupPath, file))
-            .mtime.getTime(),
-        }))
-        .sort((a, b) => b.time - a.time); // Sort by newest first
+      const backupFiles = await Promise.all(
+        files
+          .filter(
+            (file) =>
+              file.startsWith("metalplans-backup-") && file.endsWith(".db")
+          )
+          .map(async (file) => ({
+            name: file,
+            path: path.join(this.backupConfig.backupPath, file),
+            time: (await fs.promises.stat(path.join(this.backupConfig.backupPath, file))).mtime.getTime(),
+          }))
+      );
+      backupFiles.sort((a, b) => b.time - a.time);
 
       // Keep only the most recent backups
       const filesToDelete = backupFiles.slice(this.backupConfig.maxBackups);
@@ -158,22 +158,23 @@ class BackupManager {
   async getBackupHistory() {
     try {
       const files = await fs.promises.readdir(this.backupConfig.backupPath);
-      const backupFiles = files
-        .filter(
-          (file) =>
-            file.startsWith("metalplans-backup-") && file.endsWith(".db")
-        )
-        .map((file) => {
-          const filePath = path.join(this.backupConfig.backupPath, file);
-          const stats = fs.statSync(filePath);
-          return {
-            name: file,
-            path: filePath,
-            size: stats.size,
-            date: stats.mtime,
-          };
-        })
-        .sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by newest first
+      const backupFiles = (await Promise.all(
+        files
+          .filter(
+            (file) =>
+              file.startsWith("metalplans-backup-") && file.endsWith(".db")
+          )
+          .map(async (file) => {
+            const filePath = path.join(this.backupConfig.backupPath, file);
+            const stats = await fs.promises.stat(filePath);
+            return {
+              name: file,
+              path: filePath,
+              size: stats.size,
+              date: stats.mtime,
+            };
+          })
+      )).sort((a, b) => b.date.getTime() - a.date.getTime());
 
       return backupFiles;
     } catch (error) {
@@ -193,24 +194,14 @@ class BackupManager {
         return false;
       }
 
-      // Additional verification: try to open and query the database
-      return new Promise((resolve) => {
-        const { Database } = require("better-sqlite3");
-        const db = new Database(backupPath, (err) => {
-          if (err) {
-            resolve(false);
-            return;
-          }
-
-          db.get(
-            'SELECT name FROM sqlite_master WHERE type="table" LIMIT 1',
-            (err, row) => {
-              db.close();
-              resolve(!err && row !== undefined);
-            }
-          );
-        });
-      });
+      const Database = require("better-sqlite3");
+      const db = new Database(backupPath, { readonly: true });
+      try {
+        const row = db.prepare('SELECT name FROM sqlite_master WHERE type="table" LIMIT 1').get();
+        return row !== undefined;
+      } finally {
+        db.close();
+      }
     } catch (error) {
       console.error("Error verifying backup:", error);
       return false;

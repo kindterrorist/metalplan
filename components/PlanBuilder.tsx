@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { z } from "zod";
 import { workoutPlanSchema } from "../src/utils/validationSchemas";
 import {
   Athlete,
@@ -20,7 +19,6 @@ import {
   Coffee,
   Dumbbell,
   AlertTriangle,
-  ArrowRight,
   GripVertical,
   StickyNote,
 } from "lucide-react";
@@ -47,7 +45,7 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
   const [days, setDays] = useState<WorkoutDay[]>(
     initialPlan?.days ||
       Array.from({ length: 7 }).map((_, i) => ({
-        id: Math.random().toString(),
+        id: crypto.randomUUID(),
         dayName: `روز ${i + 1}`,
         exercises: [],
         isRestDay: false,
@@ -101,7 +99,7 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
     dayId: string,
     exIndex: number,
     field: keyof ExerciseSet,
-    value: any
+    value: string
   ) => {
     setDays((prev) =>
       prev.map((d) => {

@@ -20,8 +20,6 @@ interface AppContextType {
   deletePlan: ReturnType<typeof useAppData>[1]["deletePlan"];
   deleteNutritionPlan: ReturnType<typeof useAppData>[1]["deleteNutritionPlan"];
   saveTrainerProfile: ReturnType<typeof useAppData>[1]["saveTrainerProfile"];
-  addToast: ReturnType<typeof useAppData>[1]["addToast"];
-  showConfirm: ReturnType<typeof useAppData>[1]["showConfirm"];
   // UI State
   toasts: ReturnType<typeof useUIState>[0]["toasts"];
   confirmState: ReturnType<typeof useUIState>[0]["confirmState"];
@@ -37,7 +35,9 @@ interface AppContextType {
   searchTerm: ReturnType<typeof useUIState>[0]["searchTerm"];
   apiKey: ReturnType<typeof useUIState>[0]["apiKey"];
   // UI Actions
+  addToast: ReturnType<typeof useUIState>[1]["addToast"];
   removeToast: ReturnType<typeof useUIState>[1]["removeToast"];
+  showConfirm: ReturnType<typeof useUIState>[1]["showConfirm"];
   hideConfirm: ReturnType<typeof useUIState>[1]["hideConfirm"];
   setIsAthleteModalOpen: ReturnType<
     typeof useUIState
@@ -93,8 +93,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deletePlan: appActions.deletePlan,
       deleteNutritionPlan: appActions.deleteNutritionPlan,
       saveTrainerProfile: appActions.saveTrainerProfile,
-      addToast: appActions.addToast,
-      showConfirm: appActions.showConfirm,
       // UI State
       toasts: uiState.toasts,
       confirmState: uiState.confirmState,
@@ -108,7 +106,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       searchTerm: uiState.searchTerm,
       apiKey: uiState.apiKey,
       // UI Actions
+      addToast: uiActions.addToast,
       removeToast: uiActions.removeToast,
+      showConfirm: uiActions.showConfirm,
       hideConfirm: uiActions.hideConfirm,
       setIsAthleteModalOpen: uiActions.setIsAthleteModalOpen,
       setIsExportModalOpen: uiActions.setIsExportModalOpen,

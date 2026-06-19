@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ToastMessage } from "../../components/UI";
 
 export interface UIState {
@@ -191,7 +191,7 @@ export const useUIState = (): [UIState, UIActions] => {
     localStorage.setItem("gemini_api_key", key);
   }, []);
 
-  const actions: UIActions = {
+  const actions: UIActions = useMemo(() => ({
     addToast,
     removeToast,
     showConfirm,
@@ -205,7 +205,7 @@ export const useUIState = (): [UIState, UIActions] => {
     setChartMetric,
     setSearchTerm,
     setApiKey,
-  };
+  }), [addToast, removeToast, showConfirm, hideConfirm, setIsAthleteModalOpen, setIsExportModalOpen, setIsMeasurementModalOpen, setViewingPhoto, setSelectedAthleteId, setEditingAthleteId, setChartMetric, setSearchTerm, setApiKey]);
 
   return [uiState, actions];
 };

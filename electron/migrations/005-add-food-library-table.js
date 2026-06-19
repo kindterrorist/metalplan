@@ -1,6 +1,3 @@
-const { app } = require("electron");
-const path = require("path");
-
 module.exports = {
   up: (db) => {
     // Create food_library table

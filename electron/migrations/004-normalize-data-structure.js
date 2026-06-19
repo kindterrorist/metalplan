@@ -196,8 +196,8 @@ function migrateExistingData(db) {
         for (const measurement of measurements) {
           db.prepare(
             `
-            INSERT INTO athlete_measurements (id, athlete_id, date, weight, bodyfat, neck, shoulder, chest, arms, forearms, waist, hips, thighs, calves, mood, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO athlete_measurements (id, athlete_id, date, weight, body_fat, neck, shoulder, chest, arms, forearms, waist, hips, thighs, calves, mood, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
           ).run(
             generateId(),

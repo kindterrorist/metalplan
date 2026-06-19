@@ -803,7 +803,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               </span>
                             </div>
                             <div className="flex items-center gap-3 p-3 bg-white dark:bg-dark-800/50 rounded-xl">
-                              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-90/30 flex items-center justify-center text-green-60 dark:text-green-400">
+                              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
                                 <Mail size={18} />
                               </div>
                               <a
@@ -814,7 +814,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               </a>
                             </div>
                             <div className="flex items-center gap-3 p-3 bg-white dark:bg-dark-800/50 rounded-xl">
-                              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-60 dark:text-purple-400">
+                              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
                                 <Github size={18} />
                               </div>
                               <a

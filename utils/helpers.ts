@@ -154,12 +154,10 @@ export const getPersonalRecords = (athlete: Athlete, exerciseName?: string): Per
 export const calculateGoalProgress = (goal: Goal): number => {
     if (goal.achieved) return 100;
 
-    const range = Math.abs(goal.target - goal.current);
-    const progress = Math.abs(goal.target - goal.current);
+    if (goal.target === 0) return 100;
 
-    if (range === 0) return 100;
-
-    return Math.min(100, Math.max(0, Math.round((1 - progress / range) * 100)));
+    const progress = (goal.current / goal.target) * 100;
+    return Math.min(100, Math.max(0, Math.round(progress)));
 };
 
 export interface WeeklyReport {

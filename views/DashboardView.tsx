@@ -1,13 +1,20 @@
 import React from 'react';
-import { Athlete, WorkoutPlan, TrainerProfile, View } from '../types';
+import { Athlete, WorkoutPlan, TrainerProfile, View, Exercise } from '../types';
 import { Card, Skeleton } from '../components/UI';
-import { Users, FileText, Dumbbell, Calendar, UserPlus, Calculator, Utensils, Activity, User, History, Check, AlertCircle, ChevronLeft, Sun, Sunrise, SunDim, MoonStar, Search, Trophy, Settings } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { Users, FileText, Dumbbell, Calendar, UserPlus, Calculator, Utensils, Activity, User, Check, ChevronLeft, Sun, Sunrise, SunDim, MoonStar, Search, Trophy, Settings, AlertCircle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+const COLOR_MAP: Record<string, { text600: string; text400: string; bg50: string; bg900: string }> = {
+  blue: { text600: 'text-blue-600', text400: 'text-blue-400', bg50: 'bg-blue-50', bg900: 'bg-blue-900/30' },
+  emerald: { text600: 'text-emerald-600', text400: 'text-emerald-400', bg50: 'bg-emerald-50', bg900: 'bg-emerald-900/30' },
+  purple: { text600: 'text-purple-600', text400: 'text-purple-400', bg50: 'bg-purple-50', bg900: 'bg-purple-900/30' },
+  orange: { text600: 'text-orange-600', text400: 'text-orange-400', bg50: 'bg-orange-50', bg900: 'bg-orange-900/30' },
+};
 
 interface DashboardViewProps {
     athletes: Athlete[];
     plans: WorkoutPlan[];
-    exercises: any[];
+    exercises: Exercise[];
     trainerProfile: TrainerProfile | null;
     isLoading: boolean;
     isDarkMode: boolean;
@@ -169,20 +176,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     { title: 'برنامه‌های فعال', value: plans.length, icon: FileText, color: 'emerald', delay: '100' },
                     { title: 'بانک حرکات', value: exercises.length, icon: Dumbbell, color: 'purple', delay: '200' },
                     { title: 'ورودی ماه جاری', value: monthlyJoiners, icon: UserPlus, color: 'orange', delay: '300' }
-                ].map((stat, idx) => (
+                ].map((stat, idx) => {
+                    const colors = COLOR_MAP[stat.color] || COLOR_MAP.blue;
+                    return (
                     <div key={idx} className={`bg-white dark:bg-dark-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-dark-700 relative overflow-hidden group hover:shadow-lg transition-all duration-500 hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4`} style={{ animationDelay: `${stat.delay}ms` }}>
                         <div className={`absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-15 dark:group-hover:opacity-25 transition-opacity`}>
-                            <stat.icon size={80} className={`text-${stat.color}-600 dark:text-${stat.color}-400 transform -rotate-12 translate-x-4 -translate-y-4`} />
+                            <stat.icon size={80} className={`${colors.text600} dark:${colors.text400} transform -rotate-12 translate-x-4 -translate-y-4`} />
                         </div>
                         <div className="relative z-10">
-                            <div className={`w-12 h-12 bg-${stat.color}-50 dark:bg-${stat.color}-900/30 text-${stat.color}-600 dark:text-${stat.color}-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all shadow-sm dark:shadow-none`}>
+                            <div className={`w-12 h-12 ${colors.bg50} dark:${colors.bg900} ${colors.text600} dark:${colors.text400} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all shadow-sm dark:shadow-none`}>
                                 <stat.icon size={24} />
                             </div>
                             <div className="text-3xl font-black text-gray-800 dark:text-white mb-1 tracking-tight">{stat.value}</div>
                             <div className="text-sm font-bold text-gray-500 dark:text-gray-400">{stat.title}</div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">

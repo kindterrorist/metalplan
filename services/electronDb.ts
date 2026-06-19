@@ -207,7 +207,7 @@ export const searchFoodLibrary = async (
   return items.filter(item =>
     item.name.toLowerCase().includes(lowerQuery) ||
     (item.category && item.category.toLowerCase().includes(lowerQuery)) ||
-    item.notes.toLowerCase().includes(lowerQuery)
+    (item.notes && item.notes.toLowerCase().includes(lowerQuery))
   );
 };
 

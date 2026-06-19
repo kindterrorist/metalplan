@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { COLOR_PALETTES } from "../../utils/helpers";
 
 export interface ThemeState {
@@ -75,12 +75,12 @@ export const useTheme = (): [ThemeState, ThemeActions] => {
     }));
   }, []);
 
-  const actions: ThemeActions = {
+  const actions: ThemeActions = useMemo(() => ({
     toggleDarkMode,
     setAppColor,
     toggleBoldTheme,
     applyTheme,
-  };
+  }), [toggleDarkMode, setAppColor, toggleBoldTheme, applyTheme]);
 
   return [theme, actions];
 };

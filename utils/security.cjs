@@ -4,16 +4,19 @@ class SecurityManager {
   constructor(config) {
     const defaultConfig = {
       encryptionEnabled: true,
-      encryptionKey: "metalplans-default-key-change-me",
+      encryptionKey: null,
     };
     this.config = { ...defaultConfig, ...config };
-    this.encryptionKey = this.generateKey(this.config.encryptionKey);
+    this.encryptionKey = this.config.encryptionKey
+      ? this.generateKey(this.config.encryptionKey)
+      : crypto.randomBytes(32);
     this.enabled = this.config.encryptionEnabled;
   }
 
   generateKey(seed) {
     if (seed) {
-      return crypto.scryptSync(seed, "salt", 32);
+      const salt = crypto.randomBytes(16);
+      return crypto.scryptSync(seed, salt, 32);
     }
     return crypto.randomBytes(32);
   }
@@ -75,58 +78,25 @@ class SecurityManager {
       .trim();
   }
 
-  validateEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  validatePhoneNumber(phone) {
-    const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)]{7,15}$/;
-    return phoneRegex.test(phone);
-  }
-
   hashPassword(password) {
-    return crypto.createHash("sha256").update(password).digest("hex");
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+    return salt + ":" + hash;
   }
 
-  validatePassword(password) {
-    return (
-      password.length >= 8 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /[0-9]/.test(password)
-    );
+  verifyPassword(password, stored) {
+    const [salt, hash] = stored.split(":");
+    const verify = crypto.scryptSync(password, salt, 64).toString("hex");
+    return hash === verify;
   }
 
   generateSecureId() {
     return crypto.randomBytes(16).toString("hex");
   }
-
-  validateSqlInjection(input) {
-    const dangerousPatterns = [
-      /(\b(union|select|insert|delete|update|drop|create|alter|exec|execute)\b)/i,
-      /(;|--|\/\*|\*\/|xp_|sp_|sysobjects|syscolumns)/i,
-      /('|")\s*(or|and)\s*('|")/i,
-    ];
-    return !dangerousPatterns.some((pattern) => pattern.test(input));
-  }
-
-  sanitizeDatabaseInput(input) {
-    if (!input) return input;
-    return input
-      .replace(/'/g, "''")
-      .replace(/;/g, "")
-      .replace(/--/g, "")
-      .replace(/\/\*/g, "")
-      .replace(/\*\//g, "")
-      .trim();
-  }
 }
 
-// Export the class and create a default instance
 module.exports = { SecurityManager };
 
-// Create a default instance for easy use
 module.exports.securityManagerInstance = new SecurityManager();
 
 module.exports.getSecurityManager = (config) => {

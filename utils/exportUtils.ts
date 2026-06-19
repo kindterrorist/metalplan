@@ -1,4 +1,5 @@
 import { Athlete, WorkoutPlan, NutritionPlan, TrainerProfile, ExportConfig } from '../types';
+import { generateWeeklyReport, calculateWorkoutAdherence, getPersonalRecords, calculateGoalProgress, calculateBodyComposition } from './helpers';
 
 // Shared Icons
 export const EXPORT_ICONS = {
@@ -46,9 +47,9 @@ export const getExportStyles = (config: ExportConfig) => {
     const encodedBorder = border.replace('#', '%23');
 
     if (config.backgroundPattern === 'dots') {
-        bgPatternCSS = `background-image: radial-gradient(${encodedBorder} 1px, transparent 1px); background-size: 20px 20px;`;
+        bgPatternCSS = `background-image: radial-gradient(${border} 1px, transparent 1px); background-size: 20px 20px;`;
     } else if (config.backgroundPattern === 'grid') {
-        bgPatternCSS = `background-image: linear-gradient(${encodedBorder} 1px, transparent 1px), linear-gradient(90deg, ${encodedBorder} 1px, transparent 1px); background-size: 20px 20px;`;
+        bgPatternCSS = `background-image: linear-gradient(${border} 1px, transparent 1px), linear-gradient(90deg, ${border} 1px, transparent 1px); background-size: 20px 20px;`;
     } else if (config.backgroundPattern === 'waves') {
         bgPatternCSS = `background-image: url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172C9.763 6.172 9.763 0 19.526 0S29.289 6.172 29.289 6.172 29.289 12 39.052 12' stroke='${encodedBorder}' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E"); background-size: 40px 12px;`;
     } else if (config.backgroundPattern === 'custom' && config.customBackgroundImage) {
@@ -192,9 +193,7 @@ export const getExportStyles = (config: ExportConfig) => {
         font-size: 10px;
         font-weight: 900;
         color: var(--primary);
-        text-transform: uppercase;
         opacity: 0.85;
-        letter-spacing: 0.5px;
     }
     
     .info-value {
@@ -296,7 +295,7 @@ export const getExportStyles = (config: ExportConfig) => {
         align-items: center;
         justify-content: center;
         padding: 40px;
-        color: #b45309;
+        color: ${config.theme === 'dark' ? '#fbbf24' : '#b45309'};
         gap: 12px;
         font-weight: 600;
         font-size: 16px;
@@ -417,7 +416,7 @@ export const getExportStyles = (config: ExportConfig) => {
         color: ${config.theme === 'dark' ? '#fcd34d' : '#92400e'};
         padding: 12px 16px;
         border-radius: 14px;
-        border-left: 3px solid #f59e0b;
+        border-right: 3px solid #f59e0b;
         font-size: 13px;
         display: flex;
         align-items: flex-start;
@@ -502,23 +501,22 @@ export const getExportStyles = (config: ExportConfig) => {
     }
     
     .macro-carbs {
-        background: #fed7aa;
-        color: #92400e;
+        background: ${config.theme === 'dark' ? '#451a03' : '#fed7aa'};
+        color: ${config.theme === 'dark' ? '#fb923c' : '#92400e'};
     }
     
     .macro-protein {
-        background: #dbeafe;
-        color: #0c4a6e;
+        background: ${config.theme === 'dark' ? '#1e3a5f' : '#dbeafe'};
+        color: ${config.theme === 'dark' ? '#7dd3fc' : '#0c4a6e'};
     }
     
     .macro-fat {
-        background: #fecaca;
-        color: #7f1d1d;
+        background: ${config.theme === 'dark' ? '#450a0a' : '#fecaca'};
+        color: ${config.theme === 'dark' ? '#fca5a5' : '#7f1d1d'};
     }
     
     .macro-label {
         font-size: 10px;
-        text-transform: uppercase;
         letter-spacing: 0.2px;
     }
     
@@ -537,7 +535,6 @@ export const getExportStyles = (config: ExportConfig) => {
         padding: 28px 36px;
         background: ${config.theme === 'dark' ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.5) 100%)' : 'linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.5) 100%)'};
         border-radius: 20px;
-        margin-top: 40px;
         border: 1px solid var(--border);
         box-shadow: ${config.theme === 'modern' ? '0 4px 12px -2px rgba(0,0,0,0.08)' : 'none'};
     }
@@ -610,7 +607,7 @@ export const getExportStyles = (config: ExportConfig) => {
     .trainer-card {
         margin-bottom: 32px;
         padding: 24px 28px;
-        background: linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%);
+        background: linear-gradient(135deg, var(--primary-lighter) 0%, ${config.theme === 'dark' ? 'rgba(30,41,59,0.3)' : 'rgba(255,255,255,0.3)'} 100%);
         border: 2px solid var(--primary);
         border-radius: 16px;
         display: flex;
@@ -624,7 +621,7 @@ export const getExportStyles = (config: ExportConfig) => {
         height: 80px;
         border-radius: 12px;
         object-fit: cover;
-        background: white;
+        background: ${config.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'white'};
         border: 2px solid var(--border);
         flex-shrink: 0;
     }
@@ -714,14 +711,171 @@ export const getExportStyles = (config: ExportConfig) => {
         letter-spacing: -0.2px;
     }
 
+    /* === PRs & Goals === */
+    .pr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pr-table thead tr { background: var(--bg); border-bottom: 1px solid var(--border); }
+    .pr-table th { padding: 12px; font-weight: 800; color: var(--text-muted); text-align: right; }
+    .pr-table td { padding: 12px; border-bottom: 1px dashed var(--border); }
+    .pr-badge { display: inline-flex; align-items: center; gap: 4px; background: #fbbf24; color: #78350f; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; }
+
+    .goal-card { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--surface); }
+    .goal-info { flex: 1; }
+    .goal-title { font-weight: 900; font-size: 14px; color: var(--text-main); }
+    .goal-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .goal-progress-bar { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .goal-progress-fill { height: 100%; border-radius: 4px; }
+    .goal-progress-fill.complete { background: #10b981; }
+    .goal-progress-fill.in-progress { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+
+    /* === Adherence === */
+    .adherence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .adherence-stat { text-align: center; padding: 16px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); }
+    .adherence-stat .value { font-size: 28px; font-weight: 900; color: var(--primary); }
+    .adherence-stat .label { font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: 4px; }
+    .weekly-strip { display: flex; gap: 4px; justify-content: center; margin-top: 12px; }
+    .weekly-dot { width: 12px; height: 12px; border-radius: 3px; }
+    .weekly-dot.completed { background: #10b981; }
+    .weekly-dot.missed { background: #ef4444; opacity: 0.4; }
+
+    /* === Full Measurements === */
+    .measurement-full-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .measurement-full-table th { padding: 8px 6px; font-weight: 800; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 10px; }
+    .measurement-full-table td { padding: 8px 6px; border-bottom: 1px dashed var(--border); text-align: center; white-space: nowrap; }
+    .mood-indicator { display: inline-flex; gap: 2px; }
+    .mood-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .mood-dot.filled { background: var(--primary); }
+    .mood-dot.empty { background: var(--border); }
+    .composition-bar { display: flex; height: 20px; border-radius: 6px; overflow: hidden; margin-top: 8px; }
+    .composition-lean { background: #10b981; }
+    .composition-fat { background: #f59e0b; }
+
+    /* === Charts === */
+    .chart-section { margin-top: 32px; margin-bottom: 24px; page-break-inside: avoid; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow: hidden; }
+
+    /* === Diet Targets === */
+    .meal-time-badge { font-size: 11px; color: var(--text-muted); font-weight: 600; background: var(--bg); padding: 3px 8px; border-radius: 6px; }
+    .target-bar-container { margin-top: 16px; padding: 16px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); }
+    .target-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .target-bar-label { width: 60px; font-size: 11px; font-weight: 800; color: var(--text-muted); }
+    .target-bar-track { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+    .target-bar-fill { height: 100%; border-radius: 5px; }
+    .target-bar-value { font-size: 12px; font-weight: 800; color: var(--text-main); min-width: 80px; text-align: left; }
+    .diet-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+
+    /* === Exercise Metadata === */
+    .ex-muscle-tag { font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+    .ex-description { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); line-height: 1.6; padding: 8px 12px; background: var(--bg); border-radius: 8px; margin-top: 8px; }
+    .ex-video-link { font-size: 11px; color: var(--primary); text-decoration: none; font-weight: 700; }
+
+    /* === Trainer Extended === */
+    .trainer-bio { font-size: 13px; color: var(--text-main); line-height: 1.7; margin-top: 8px; }
+    .trainer-certs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .trainer-cert-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--primary-light); color: var(--primary); }
+    .trainer-website { font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600; }
+
+    /* === Weekly Report === */
+    .weekly-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin: 20px 0; }
+    .weekly-card { text-align: center; padding: 20px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); }
+    .weekly-card .big-number { font-size: 32px; font-weight: 900; color: var(--primary); }
+    .weekly-card .card-label { font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: 4px; }
+    .weekly-card .card-trend { font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .trend-up { color: #ef4444; }
+    .trend-down { color: #10b981; }
+
+    /* === Mobile Responsive === */
+    @media (max-width: 640px) {
+        body { padding: 16px; }
+        .page-container { padding: 24px 16px; min-height: auto; }
+
+        .header { padding: 24px 16px; }
+        .brand h1 { font-size: 22px; }
+        .brand-logo { width: 56px; height: 56px; }
+
+        .info-strip { flex-wrap: wrap; padding: 16px; gap: 12px; }
+        .info-divider { display: none; }
+        .info-item { min-width: 45%; }
+        .info-value { font-size: 14px; }
+
+        .section-title { font-size: 16px; margin-bottom: 16px; }
+
+        .exercise-row { grid-template-columns: 1fr 1fr; padding: 12px 16px; gap: 8px; }
+        .ex-main { grid-column: 1 / -1; }
+        .ex-name { font-size: 13px; }
+        .stat-pill { padding: 6px 10px; }
+        .stat-label { font-size: 8px; }
+        .stat-value { font-size: 14px; }
+
+        .day-header { padding: 14px 16px; }
+        .day-title { font-size: 15px; }
+        .day-body { padding: 0; }
+
+        .meal-row { padding: 14px 16px; }
+        .meal-header { font-size: 14px; }
+        .food-item { flex-direction: column; align-items: flex-start; gap: 6px; }
+        .food-name { font-size: 13px; }
+        .food-macros { flex-wrap: wrap; gap: 6px; font-size: 10px; }
+
+        .rest-content { padding: 24px; }
+        .rest-content > div:first-of-type { font-size: 16px; }
+
+        .footer { grid-template-columns: 1fr; padding: 20px 16px; gap: 16px; }
+        .footer-center { border: none; border-top: 1px dashed var(--border); padding-top: 12px; text-align: center; }
+        .footer-left { align-items: center; text-align: center; }
+
+        .trainer-card { padding: 16px; flex-direction: column; text-align: center; gap: 12px; }
+        .trainer-card-logo { width: 64px; height: 64px; }
+        .trainer-card-contacts { align-items: center; }
+
+        .quote-box { padding: 16px; font-size: 14px; }
+
+        .diet-summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .target-bar-row { gap: 8px; }
+        .target-bar-label { width: 45px; font-size: 10px; }
+        .target-bar-value { min-width: 50px; font-size: 10px; }
+        .target-bar-container { padding: 12px; }
+
+        .adherence-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+        .adherence-stat { padding: 12px; }
+        .adherence-stat .value { font-size: 22px; }
+
+        .weekly-report-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .weekly-card { padding: 14px; }
+        .weekly-card .big-number { font-size: 24px; }
+
+        .goal-card { padding: 12px 14px; gap: 12px; }
+        .goal-title { font-size: 13px; }
+        .goal-meta { font-size: 10px; }
+
+        .pr-table { font-size: 11px; }
+        .pr-table th, .pr-table td { padding: 8px 6px; }
+
+        .measurement-full-table { font-size: 10px; }
+        .measurement-full-table th, .measurement-full-table td { padding: 6px 4px; }
+
+        .chart-card { padding: 12px; }
+        .chart-card svg { max-height: 200px; }
+
+        .brand-slogan { font-size: 11px; }
+
+        .ex-note { padding: 10px 12px; font-size: 12px; }
+        .ex-description { font-size: 11px; padding: 6px 10px; }
+
+        .signature-box { width: 120px; }
+        .signature-img { max-height: 50px; }
+
+        .contact-row { font-size: 11px; gap: 6px; }
+    }
+
     @media print {
         body { 
-            padding: 0; 
-            background: white; 
+            padding: 10mm; 
+            background: white;
         }
         .page-container { 
             box-shadow: none; 
-            padding: 0mm; 
+            padding: 0; 
             width: 100%; 
             max-width: none; 
             min-height: 0; 
@@ -854,7 +1008,7 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <div class="badge-count">${day.exercises.length} حرکت</div>
-                                    <span class="day-subtitle">${day.exercises.reduce((acc, ex) => acc + parseInt(ex.sets as any || 0), 0)} ست</span>
+                                    <span class="day-subtitle">${day.exercises.reduce((acc, ex) => acc + (parseInt(String(ex.sets).split('-')[0]) || 0), 0)} ست</span>
                                     ${EXPORT_ICONS.chevron}
                                 </div>
                             </div>
@@ -863,6 +1017,10 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                                     <div class="exercise-row">
                                         <div class="ex-main">
                                             <div class="ex-name"><span style="color:var(--primary); margin-left:8px; opacity:0.6;">${idx + 1}.</span>${ex.exerciseName}</div>
+                                            ${config.showExerciseMetadata !== false ? `
+                                            ${(ex as any).type ? `<span class="ex-type-badge">${(ex as any).type}</span>` : ''}
+                                            ${(ex as any).muscleGroup ? `<span class="ex-muscle-tag">${(ex as any).muscleGroup}</span>` : ''}
+                                            ` : ''}
                                         </div>
                                         
                                         <div class="stat-pill">
@@ -884,6 +1042,12 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
                                                 ${ex.notes}
                                             </div>
                                         ` : ''}
+                                        ${config.showExerciseMetadata !== false && (ex as any).description ? `
+                                            <div class="ex-description">${(ex as any).description}</div>
+                                        ` : ''}
+                                        ${config.showExerciseMetadata !== false && (ex as any).videoUrl ? `
+                                            <a href="${(ex as any).videoUrl}" class="ex-video-link" target="_blank" rel="noopener">مشاهده ویدیو</a>
+                                        ` : ''}
                                     </div>
                                 `).join('') : '<div style="padding:24px;text-align:center;opacity:0.5">بدون تمرین</div>'}
                             </div>
@@ -894,9 +1058,9 @@ export const getPlanHtml = (plan: WorkoutPlan, athlete: Athlete, trainer: Traine
 
             <!-- Trainer info removed by request -->
 
-            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-left:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات برنامه:</strong><br/><span style="margin-top:8px; display:block;">${plan.notes}</span></div>` : ''}
+            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-right:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات برنامه:</strong><br/><span style="margin-top:8px; display:block;">${plan.notes}</span></div>` : ''}
 
-            ${config.showQuote ? `<div class="quote-box">"${randomQuote}"</div>` : ''}
+            ${config.showQuote ? `<div class="quote-box">«${randomQuote}»</div>` : ''}
 
             <div class="footer">
                 <div class="footer-section">
@@ -925,7 +1089,7 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                 </div>
                 ${trainer?.logoUrl
             ? `<img src="${trainer.logoUrl}" class="brand-logo" alt="Logo" />`
-            : `<div style="font-weight:900; font-size:24px; color:var(--primary); opacity:0.2;"></div>`
+            : ''
         }
             </div>
 
@@ -966,7 +1130,10 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                         <div class="day-body">
                             ${day.meals.map(meal => `
                                 <div class="meal-row">
-                                    <div class="meal-header">${meal.name}</div>
+                                    <div class="meal-header">
+                                        ${meal.name}
+                                        ${config.showMealTime !== false && meal.time ? `<span class="meal-time-badge">${meal.time}</span>` : ''}
+                                    </div>
                                     ${meal.foods.length === 0 ? '<div style="opacity:0.5; font-size:12px">خالی</div>' :
                     meal.foods.map(food => `
                                         <div class="food-item">
@@ -984,6 +1151,33 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                                       `).join('')}
                                 </div>
                             `).join('')}
+                            ${config.showDietTargets !== false && (day.targetCalories || day.targetProtein || day.targetCarbs || day.targetFat) ? (() => {
+                                const carbs = day.meals.reduce((s, m) => s + m.foods.reduce((a, f) => a + f.carbs, 0), 0);
+                                const fat = day.meals.reduce((s, m) => s + m.foods.reduce((a, f) => a + f.fat, 0), 0);
+                                const bars = [
+                                    { label: 'کالری', actual: cals, target: day.targetCalories || 0, color: '#3b82f6' },
+                                    { label: 'پروتئین', actual: prot, target: day.targetProtein || 0, color: '#10b981' },
+                                    { label: 'کربوهیدرات', actual: carbs, target: day.targetCarbs || 0, color: '#f59e0b' },
+                                    { label: 'چربی', actual: fat, target: day.targetFat || 0, color: '#ef4444' },
+                                ].filter(b => b.target > 0);
+                                if (bars.length === 0) return '';
+                                return `
+                                <div class="target-bar-container">
+                                    <div style="font-weight:800; font-size:12px; color:var(--text-main); margin-bottom:12px;">مقایسه اهداف واقعی</div>
+                                    ${bars.map(b => {
+                                        const pct = Math.min(100, (b.actual / b.target) * 100);
+                                        const over = b.actual > b.target;
+                                        return `
+                                        <div class="target-bar-row">
+                                            <div class="target-bar-label">${b.label}</div>
+                                            <div class="target-bar-track">
+                                                <div class="target-bar-fill" style="width:${pct}%; background:${over ? '#ef4444' : b.color}"></div>
+                                            </div>
+                                            <div class="target-bar-value" style="color:${over ? '#ef4444' : 'var(--text-main)'}">${Math.round(b.actual)} / ${b.target}</div>
+                                        </div>`;
+                                    }).join('')}
+                                </div>`;
+                            })() : ''}
                         </div>
                     </div>
                 `}).join('')}
@@ -994,17 +1188,24 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
                 ${trainer.logoUrl ? `<img src="${trainer.logoUrl}" class="trainer-card-logo" alt="${trainer.name}" />` : ''}
                 <div class="trainer-card-content">
                     <h3 class="trainer-card-name">${trainer.name || 'مربی'}</h3>
+                    ${config.showTrainerBio !== false && trainer.clubName ? `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">${trainer.clubName}</div>` : ''}
+                    ${config.showTrainerBio !== false && trainer.bio ? `<div class="trainer-bio">${trainer.bio}</div>` : ''}
+                    ${config.showTrainerBio !== false && trainer.certifications && trainer.certifications.length > 0 ? `
+                    <div class="trainer-certs">
+                        ${trainer.certifications.map(c => `<span class="trainer-cert-badge">${c}</span>`).join('')}
+                    </div>` : ''}
                     <div class="trainer-card-contacts">
                         ${trainer.phone ? `<div class="trainer-contact">${EXPORT_ICONS.phone}<span dir="ltr">${trainer.phone}</span></div>` : ''}
                         ${trainer.instagram ? `<div class="trainer-contact">${EXPORT_ICONS.insta}<span dir="ltr">@${trainer.instagram}</span></div>` : ''}
                         ${trainer.telegram ? `<div class="trainer-contact">${EXPORT_ICONS.send}<span dir="ltr">${trainer.telegram}</span></div>` : ''}
                         ${trainer.email ? `<div class="trainer-contact">${EXPORT_ICONS.mail}<span dir="ltr">${trainer.email}</span></div>` : ''}
+                        ${config.showTrainerBio !== false && trainer.website ? `<div class="trainer-contact"><a href="${trainer.website}" class="trainer-website" target="_blank" rel="noopener">${trainer.website}</a></div>` : ''}
                     </div>
                 </div>
             </div>
             ` : ''}
 
-            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-left:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات رژیم:</strong><br/><span style="margin-top:8px; display:block; white-space: pre-wrap;">${plan.notes}</span></div>` : ''}
+            ${plan.notes ? `<div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--primary-lighter) 0%, rgba(255,255,255,0.3) 100%); border-right:4px solid var(--primary); border-radius:12px; font-size:13px; color:var(--text-main); line-height:1.7;"><strong style="color:var(--primary); font-weight:900; font-size:14px;">📝 توضیحات رژیم:</strong><br/><span style="margin-top:8px; display:block; white-space: pre-wrap;">${plan.notes}</span></div>` : ''}
 
             <div class="footer">
                 <div class="footer-section">
@@ -1040,12 +1241,12 @@ export const getDietHtml = (plan: NutritionPlan, athlete: Athlete, trainer: Trai
 // ... Progress HTML Generator ...
 export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig) => {
     // Stats Calculation
-    const measurements = athlete.measurements || [];
+    const measurements = [...(athlete.measurements || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const latest = measurements[measurements.length - 1];
     const first = measurements[0];
     const weightChange = (latest?.weight || 0) - (first?.weight || 0);
 
-    const photosHtml = generatePhotosHtml(athlete, config);
+    const photosHtml = config.includePhotos !== false ? generatePhotosHtml(athlete, config) : '';
 
     // Chart Generation (Weight)
     let chartHtml = '';
@@ -1084,8 +1285,8 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
                         <!-- Gradients -->
                         <defs>
                             <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.2"/>
-                                <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+                                <stop offset="0%" stop-color="${config.primaryColor}" stop-opacity="0.2"/>
+                                <stop offset="100%" stop-color="${config.primaryColor}" stop-opacity="0"/>
                             </linearGradient>
                         </defs>
 
@@ -1158,29 +1359,106 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
                 </div>
             </div>
 
+            ${config.showAdherence !== false ? (() => {
+                const records = getPersonalRecords(athlete);
+                const adherence = calculateWorkoutAdherence(athlete.workoutLog, { start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), end: new Date() });
+                const recentLogs = (athlete.workoutLog || []).slice(-7);
+                return `
+            <div class="section-title">
+                ${EXPORT_ICONS.activity} آمار پایبندی (۳۰ روز اخیر)
+            </div>
+            <div class="adherence-grid">
+                <div class="adherence-stat">
+                    <div class="value">${adherence}%</div>
+                    <div class="label">نرخ پایبندی</div>
+                </div>
+                <div class="adherence-stat">
+                    <div class="value">${recentLogs.filter(l => l.completed).length}/${recentLogs.length}</div>
+                    <div class="label">تمرینات هفته اخیر</div>
+                </div>
+                <div class="adherence-stat">
+                    <div class="value">${records.length}</div>
+                    <div class="label">رکوردهای شخصی</div>
+                </div>
+                <div class="adherence-stat">
+                    <div class="value" dir="ltr" style="color:${weightChange <= 0 ? '#10b981' : '#ef4444'}">${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)}</div>
+                    <div class="label">تغییر وزن (کیلو)</div>
+                </div>
+            </div>
+            <div class="weekly-strip">
+                ${recentLogs.map(l => `<div class="weekly-dot ${l.completed ? 'completed' : 'missed'}" title="${new Date(l.date).toLocaleDateString('fa-IR')}"></div>`).join('')}
+            </div>
+            `; })() : ''}
+
             <!-- Stats/Measurements Table -->
            <div class="days-list" style="gap: 12px; margin-bottom: 30px;">
                 <div class="section-title">
-                     ${EXPORT_ICONS.ruler} آخرین اندازه‌گیری‌ها
+                     ${EXPORT_ICONS.ruler} ${config.showFullMeasurements ? 'اندازه‌گیری‌های کامل' : 'آخرین اندازه‌گیری‌ها'}
                 </div>
-                <div class="day-card" style="border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
-                     <table style="width: 100%; text-align: right; border-collapse: collapse; font-size: 13px;">
+                ${config.showFullMeasurements && latest ? (() => {
+                    const comp = calculateBodyComposition(latest.weight, latest.bodyFat);
+                    const leanPct = comp.totalWeight > 0 ? (comp.leanMass / comp.totalWeight * 100) : 0;
+                    const fatPct = comp.totalWeight > 0 ? (comp.fatMass / comp.totalWeight * 100) : 0;
+                    return `
+                <div style="padding:16px; background:var(--bg); border-radius:12px; border:1px solid var(--border); margin-bottom:16px;">
+                    <div style="font-weight:800; font-size:13px; color:var(--text-main); margin-bottom:8px;">ترکیب بدنی</div>
+                    <div style="display:flex; gap:16px; font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+                        <span>LEAN: ${comp.leanMass.toFixed(1)}kg (${leanPct.toFixed(0)}%)</span>
+                        <span>FAT: ${comp.fatMass.toFixed(1)}kg (${fatPct.toFixed(0)}%)</span>
+                    </div>
+                    <div class="composition-bar">
+                        <div class="composition-lean" style="width:${leanPct}%"></div>
+                        <div class="composition-fat" style="width:${fatPct}%"></div>
+                    </div>
+                </div>
+                `;
+                })() : ''}
+                <div class="day-card" style="border: 1px solid var(--border); border-radius: 12px; overflow-x: auto;">
+                     <table class="${config.showFullMeasurements ? 'measurement-full-table' : ''}" style="${config.showFullMeasurements ? '' : 'width: 100%; text-align: right; border-collapse: collapse; font-size: 13px;'}">
                         <thead>
                             <tr style="background: var(--bg); border-bottom: 1px solid var(--border);">
                                 <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">تاریخ</th>
                                 <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">وزن</th>
                                 <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">چربی</th>
-                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">دور کمر</th>
+                                ${config.showFullMeasurements ? `
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">گردن</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">شانه</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">سینه</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">بازو</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">ساعد</th>
+                                ` : ''}
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">کمر</th>
+                                ${config.showFullMeasurements ? `
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">باسن</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">ران</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">ساق</th>
+                                <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">حال</th>
+                                ` : ''}
                                 <th style="padding: 12px; font-weight: 800; color: var(--text-muted);">یادداشت</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${[...measurements].reverse().slice(0, 5).map(m => `
+                            ${(config.showFullMeasurements ? measurements : [...measurements].reverse().slice(0, 5)).map(m => `
                                 <tr style="border-bottom: 1px dashed var(--border);">
                                     <td style="padding: 12px;">${new Date(m.date).toLocaleDateString('fa-IR')}</td>
                                     <td style="padding: 12px; font-weight: bold;">${m.weight}</td>
                                     <td style="padding: 12px;">${m.bodyFat || '-'}</td>
+                                    ${config.showFullMeasurements ? `
+                                    <td style="padding: 12px;">${m.neck || '-'}</td>
+                                    <td style="padding: 12px;">${m.shoulder || '-'}</td>
+                                    <td style="padding: 12px;">${m.chest || '-'}</td>
+                                    <td style="padding: 12px;">${m.arms || '-'}</td>
+                                    <td style="padding: 12px;">${m.forearms || '-'}</td>
+                                    ` : ''}
                                     <td style="padding: 12px;">${m.waist || '-'}</td>
+                                    ${config.showFullMeasurements ? `
+                                    <td style="padding: 12px;">${m.hips || '-'}</td>
+                                    <td style="padding: 12px;">${m.thighs || '-'}</td>
+                                    <td style="padding: 12px;">${m.calves || '-'}</td>
+                                    <td style="padding: 12px;">
+                                        ${m.mood ? `<div class="mood-indicator">${Array.from({length:5}, (_,i) => `<div class="mood-dot ${(m.mood || 0) > i ? 'filled' : 'empty'}"></div>`).join('')}</div>` : '-'}
+                                    </td>
+                                    ` : ''}
                                     <td style="padding: 12px; font-size: 12px; color: var(--text-muted);">${m.notes || '-'}</td>
                                 </tr>
                             `).join('')}
@@ -1190,11 +1468,317 @@ export const getProgressHtml = (athlete: Athlete, trainer: TrainerProfile | null
            </div>
 
             ${chartHtml}
+
+            ${config.showCharts !== false && measurements.length >= 2 ? (() => {
+                const colors = {
+                    primary: config.primaryColor,
+                    success: '#10b981',
+                    warning: '#f59e0b',
+                    danger: '#ef4444',
+                    textMain: config.theme === 'dark' ? '#f8fafc' : '#0f172a',
+                    textMuted: config.theme === 'dark' ? '#94a3b8' : '#64748b',
+                    border: config.theme === 'dark' ? '#334155' : '#e2e8f0',
+                    surface: config.theme === 'dark' ? '#1e293b' : '#ffffff',
+                };
+                const sorted = [...measurements].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const latestM = sorted[sorted.length - 1];
+                const firstM = sorted[0];
+
+                // Radar chart for body circumferences
+                const radarMetrics = [
+                    { label: 'شانه', val: latestM.shoulder || 0, max: 150 },
+                    { label: 'سینه', val: latestM.chest || 0, max: 130 },
+                    { label: 'بازو', val: latestM.arms || 0, max: 50 },
+                    { label: 'کمر', val: latestM.waist || 0, max: 120 },
+                    { label: 'باسن', val: latestM.hips || 0, max: 130 },
+                    { label: 'ران', val: latestM.thighs || 0, max: 70 },
+                    { label: 'ساق', val: latestM.calves || 0, max: 50 },
+                    { label: 'گردن', val: latestM.neck || 0, max: 50 },
+                ].filter(m => m.val > 0);
+
+                let radarSvg = '';
+                if (radarMetrics.length >= 3) {
+                    const cx = 150, cy = 150, r = 110;
+                    const angleStep = (2 * Math.PI) / radarMetrics.length;
+                    const polygonPoints = radarMetrics.map((m, i) => {
+                        const angle = i * angleStep - Math.PI / 2;
+                        const dist = (m.val / m.max) * r;
+                        return `${cx + dist * Math.cos(angle)},${cy + dist * Math.sin(angle)}`;
+                    }).join(' ');
+                    const gridLevels = [0.25, 0.5, 0.75, 1];
+                    radarSvg = `
+                    <div class="chart-section">
+                        <div class="section-title">${EXPORT_ICONS.ruler} نمودار محیط بدن</div>
+                        <div class="chart-card">
+                            <svg width="100%" viewBox="0 0 300 300" style="max-width:300px; margin:0 auto; display:block;">
+                                ${gridLevels.map(level => {
+                                    const pts = radarMetrics.map((_, i) => {
+                                        const angle = i * angleStep - Math.PI / 2;
+                                        return `${cx + level * r * Math.cos(angle)},${cy + level * r * Math.sin(angle)}`;
+                                    }).join(' ');
+                                    return `<polygon points="${pts}" fill="none" stroke="${colors.border}" stroke-width="1" />`;
+                                }).join('')}
+                                ${radarMetrics.map((_, i) => {
+                                    const angle = i * angleStep - Math.PI / 2;
+                                    return `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(angle)}" y2="${cy + r * Math.sin(angle)}" stroke="${colors.border}" stroke-width="0.5" />`;
+                                }).join('')}
+                                <polygon points="${polygonPoints}" fill="${colors.primary}" fill-opacity="0.2" stroke="${colors.primary}" stroke-width="2" />
+                                ${radarMetrics.map((m, i) => {
+                                    const angle = i * angleStep - Math.PI / 2;
+                                    const lx = cx + (r + 20) * Math.cos(angle);
+                                    const ly = cy + (r + 20) * Math.sin(angle);
+                                    return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="${colors.textMuted}">${m.label}: ${m.val}</text>`;
+                                }).join('')}
+                            </svg>
+                        </div>
+                    </div>`;
+                }
+
+                // Pie chart for body composition
+                let pieSvg = '';
+                if (latestM.bodyFat && latestM.weight) {
+                    const comp = calculateBodyComposition(latestM.weight, latestM.bodyFat);
+                    const leanPct = comp.totalWeight > 0 ? (comp.leanMass / comp.totalWeight * 100) : 0;
+                    const fatPct = 100 - leanPct;
+                    const r2 = 60, cx2 = 80, cy2 = 80;
+                    const fatAngle = (fatPct / 100) * 2 * Math.PI;
+                    const fatX = cx2 + r2 * Math.sin(fatAngle);
+                    const fatY = cy2 - r2 * Math.cos(fatAngle);
+                    const largeArc = fatPct > 50 ? 1 : 0;
+                    pieSvg = `
+                    <div class="chart-section">
+                        <div class="section-title">ترکیب بدنی</div>
+                        <div class="chart-card" style="display:flex; align-items:center; gap:24px;">
+                            <svg width="160" height="160" viewBox="0 0 160 160">
+                                <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${colors.success}" stroke-width="24" stroke-dasharray="${leanPct * 2 * Math.PI * r2 / 100} ${(100 - leanPct) * 2 * Math.PI * r2 / 100}" stroke-dashoffset="${25 * 2 * Math.PI * r2 / 100}" />
+                                <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${colors.warning}" stroke-width="24" stroke-dasharray="${fatPct * 2 * Math.PI * r2 / 100} ${(100 - fatPct) * 2 * Math.PI * r2 / 100}" stroke-dashoffset="${(25 - leanPct) * 2 * Math.PI * r2 / 100}" />
+                                <text x="${cx2}" y="${cy2}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="900" fill="${colors.textMain}">${comp.leanMass.toFixed(0)}kg</text>
+                            </svg>
+                            <div>
+                                <div style="font-size:13px; font-weight:800; color:${colors.success};">● عضله خالص: ${comp.leanMass.toFixed(1)}kg (${leanPct.toFixed(0)}%)</div>
+                                <div style="font-size:13px; font-weight:800; color:${colors.warning}; margin-top:4px;">● چربی: ${comp.fatMass.toFixed(1)}kg (${fatPct.toFixed(0)}%)</div>
+                                <div style="font-size:12px; color:${colors.textMuted}; margin-top:8px;">وزن کل: ${comp.totalWeight}kg</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                // Multi-line chart (weight + bodyFat + waist)
+                let multiChartSvg = '';
+                if (sorted.length >= 2 && sorted.some(m => m.bodyFat) && sorted.some(m => m.waist)) {
+                    const w = 800, h = 300, pad = 40;
+                    const dataW = sorted.map(m => ({ date: new Date(m.date).getTime(), val: m.weight }));
+                    const dataF = sorted.filter(m => m.bodyFat).map(m => ({ date: new Date(m.date).getTime(), val: m.bodyFat! }));
+                    const dataZ = sorted.filter(m => m.waist).map(m => ({ date: new Date(m.date).getTime(), val: m.waist! }));
+                    const allVals = [...dataW.map(d => d.val), ...dataF.map(d => d.val), ...dataZ.map(d => d.val)];
+                    const minV = Math.min(...allVals) - 2, maxV = Math.max(...allVals) + 2;
+                    const minT = dataW[0].date, maxT = dataW[dataW.length - 1].date;
+                    const gX = (t: number) => pad + ((t - minT) / (maxT - minT)) * (w - 2 * pad);
+                    const gY = (v: number) => h - pad - ((v - minV) / (maxV - minV)) * (h - 2 * pad);
+                    const makePath = (data: {date:number;val:number}[]) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${gX(d.date)} ${gY(d.val)}`).join(' ');
+                    multiChartSvg = `
+                    <div class="chart-section">
+                        <div class="section-title">مقایسه چند شاخص</div>
+                        <div class="chart-card">
+                            <svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible;">
+                                ${[0, 0.25, 0.5, 0.75, 1].map(p => {
+                                    const y = h - pad - (p * (h - 2 * pad));
+                                    return `<line x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" stroke="${colors.border}" stroke-dasharray="4,4" stroke-width="1" opacity="0.5" />`;
+                                }).join('')}
+                                <path d="${makePath(dataW)}" fill="none" stroke="${colors.primary}" stroke-width="2.5" stroke-linecap="round" />
+                                <path d="${makePath(dataF)}" fill="none" stroke="${colors.warning}" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" />
+                                <path d="${makePath(dataZ)}" fill="none" stroke="${colors.danger}" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round" />
+                                ${dataW.map(d => `<circle cx="${gX(d.date)}" cy="${gY(d.val)}" r="3" fill="${colors.surface}" stroke="${colors.primary}" stroke-width="2" />`).join('')}
+                                <text x="${pad}" y="${h - 10}" font-size="10" fill="${colors.primary}">● وزن</text>
+                                <text x="${pad + 60}" y="${h - 10}" font-size="10" fill="${colors.warning}">● چربی%</text>
+                                <text x="${pad + 130}" y="${h - 10}" font-size="10" fill="${colors.danger}">● کمر</text>
+                                <text x="${pad}" y="${h - 10}" font-size="10" fill="${colors.textMuted}">${new Date(dataW[0].date).toLocaleDateString('fa-IR')}</text>
+                                <text x="${w - pad}" y="${h - 10}" text-anchor="end" font-size="10" fill="${colors.textMuted}">${new Date(dataW[dataW.length - 1].date).toLocaleDateString('fa-IR')}</text>
+                            </svg>
+                        </div>
+                    </div>`;
+                }
+
+                return radarSvg + pieSvg + multiChartSvg;
+            })() : ''}
+
             ${photosHtml}
 
+            ${(config.showPersonalRecords !== false && (athlete.personalRecords || []).length > 0) ? `
+            <div class="section-title" style="margin-top:32px;">
+                ${EXPORT_ICONS.dumbbell} رکوردهای شخصی
+            </div>
+            <div style="overflow-x: auto;">
+            <table class="pr-table">
+                <thead>
+                    <tr>
+                        <th>حرکت</th>
+                        <th>وزنه</th>
+                        <th>تکرار</th>
+                        <th>تاریخ</th>
+                        <th>یادداشت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${getPersonalRecords(athlete).slice(0, 15).map(pr => `
+                        <tr>
+                            <td style="font-weight:800;">${pr.exerciseName}</td>
+                            <td dir="ltr">${pr.weight} kg</td>
+                            <td>${pr.reps}</td>
+                            <td>${new Date(pr.date).toLocaleDateString('fa-IR')}</td>
+                            <td style="font-size:12px; color:var(--text-muted);">${pr.notes || '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            </div>
+            ` : ''}
+
+            ${(config.showGoals !== false && (athlete.goals || []).length > 0) ? `
+            <div class="section-title" style="margin-top:32px;">
+                🎯 اهداف
+            </div>
+            ${(athlete.goals || []).map(goal => {
+                const progress = calculateGoalProgress(goal);
+                return `
+                <div class="goal-card">
+                    <div class="goal-info">
+                        <div class="goal-title">${goal.title}</div>
+                        <div class="goal-meta">${goal.current} / ${goal.target} ${goal.unit}${goal.deadline ? ` — مهلت: ${new Date(goal.deadline).toLocaleDateString('fa-IR')}` : ''}</div>
+                        <div class="goal-progress-bar">
+                            <div class="goal-progress-fill ${goal.achieved ? 'complete' : 'in-progress'}" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:14px; font-weight:900; color:${goal.achieved ? '#10b981' : 'var(--primary)'};">${progress}%</div>
+                </div>
+                `;
+            }).join('')}
+            ` : ''}
+
             <div class="footer">
-                <div class="footer-note">
-                    <span style="opacity:0.7;">تداوم در تمرین و تغذیه سالم، کلید موفقیت شماست.</span>
+                <div class="footer-section">
+                    <div class="footer-note">
+                        <span style="opacity:0.7;">تداوم در تمرین و تغذیه سالم، کلید موفقیت شماست.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+
+// ... Weekly Report HTML Generator ...
+export const getWeeklyReportHtml = (athlete: Athlete, trainer: TrainerProfile | null, config: ExportConfig, dateRange: { start: Date; end: Date }) => {
+    const report = generateWeeklyReport(athlete, dateRange);
+    const adherence = calculateWorkoutAdherence(athlete.workoutLog, dateRange);
+    const records = getPersonalRecords(athlete);
+
+    return `
+        <div class="page-container">
+            <div class="header">
+                <div class="brand">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+                        <h1 style="font-size:24px;">گزارش هفتگی</h1>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-muted);">ورزشکار: ${athlete.fullName}</div>
+                </div>
+            </div>
+
+            <div class="info-strip">
+                <div class="info-item">
+                    <span class="info-label">ورزشکار</span>
+                    <span class="info-value">${athlete.fullName}</span>
+                </div>
+                <div class="info-divider"></div>
+                <div class="info-item">
+                    <span class="info-label">از تاریخ</span>
+                    <span class="info-value">${dateRange.start.toLocaleDateString('fa-IR')}</span>
+                </div>
+                <div class="info-divider"></div>
+                <div class="info-item">
+                    <span class="info-label">تا تاریخ</span>
+                    <span class="info-value">${dateRange.end.toLocaleDateString('fa-IR')}</span>
+                </div>
+            </div>
+
+            <div class="weekly-report-grid">
+                <div class="weekly-card">
+                    <div class="big-number" dir="ltr" style="color:${report.weightChange <= 0 ? '#10b981' : '#ef4444'}">${report.weightChange > 0 ? '+' : ''}${report.weightChange.toFixed(1)}</div>
+                    <div class="card-label">تغییر وزن (کیلو)</div>
+                    <div class="card-trend ${report.weightChange <= 0 ? 'trend-down' : 'trend-up'}">${report.weightChange <= 0 ? '↓ کاهش' : '↑ افزایش'}</div>
+                </div>
+                <div class="weekly-card">
+                    <div class="big-number" dir="ltr" style="color:${report.bodyFatChange <= 0 ? '#10b981' : '#ef4444'}">${report.bodyFatChange > 0 ? '+' : ''}${report.bodyFatChange.toFixed(1)}</div>
+                    <div class="card-label">تغییر چربی (%)</div>
+                    <div class="card-trend ${report.bodyFatChange <= 0 ? 'trend-down' : 'trend-up'}">${report.bodyFatChange <= 0 ? '↓ کاهش' : '↑ افزایش'}</div>
+                </div>
+                <div class="weekly-card">
+                    <div class="big-number">${report.workoutsCompleted}</div>
+                    <div class="card-label">تمرینات انجام شده</div>
+                </div>
+                <div class="weekly-card">
+                    <div class="big-number">${report.adherenceRate}%</div>
+                    <div class="card-label">نرخ پایبندی</div>
+                </div>
+                <div class="weekly-card">
+                    <div class="big-number">${report.newPRs}</div>
+                    <div class="card-label">رکوردهای جدید</div>
+                </div>
+            </div>
+
+            ${records.length > 0 ? `
+            <div class="section-title" style="margin-top:32px;">
+                ${EXPORT_ICONS.dumbbell} رکوردهای شخصی اخیر
+            </div>
+            <div style="overflow-x: auto;">
+            <table class="pr-table">
+                <thead>
+                    <tr>
+                        <th>حرکت</th>
+                        <th>وزنه</th>
+                        <th>تکرار</th>
+                        <th>تاریخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${records.slice(0, 10).map(pr => `
+                        <tr>
+                            <td style="font-weight:800;">${pr.exerciseName}</td>
+                            <td dir="ltr">${pr.weight} kg</td>
+                            <td>${pr.reps}</td>
+                            <td>${new Date(pr.date).toLocaleDateString('fa-IR')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            </div>
+            ` : ''}
+
+            ${trainer && config.showTrainerInfo ? `
+            <div class="trainer-card" style="margin-top:32px;">
+                ${trainer.logoUrl ? `<img src="${trainer.logoUrl}" class="trainer-card-logo" alt="${trainer.name}" />` : ''}
+                <div class="trainer-card-content">
+                    <h3 class="trainer-card-name">${trainer.name || 'مربی'}</h3>
+                    ${config.showTrainerBio !== false && trainer.clubName ? `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">${trainer.clubName}</div>` : ''}
+                    ${config.showTrainerBio !== false && trainer.bio ? `<div class="trainer-bio">${trainer.bio}</div>` : ''}
+                    ${config.showTrainerBio !== false && trainer.certifications && trainer.certifications.length > 0 ? `
+                    <div class="trainer-certs">
+                        ${trainer.certifications.map(c => `<span class="trainer-cert-badge">${c}</span>`).join('')}
+                    </div>` : ''}
+                    <div class="trainer-card-contacts">
+                        ${trainer.phone ? `<div class="contact-row">${EXPORT_ICONS.phone}<span dir="ltr">${trainer.phone}</span></div>` : ''}
+                        ${trainer.instagram ? `<div class="contact-row">${EXPORT_ICONS.insta}<span dir="ltr">@${trainer.instagram}</span></div>` : ''}
+                        ${config.showTrainerBio !== false && trainer.website ? `<div class="contact-row"><a href="${trainer.website}" class="trainer-website" target="_blank" rel="noopener">${trainer.website}</a></div>` : ''}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            <div class="footer">
+                <div class="footer-section">
+                    <div class="footer-note">
+                        <span style="opacity:0.7;">گزارش هفتگی — متال پلنز</span>
+                    </div>
                 </div>
             </div>
         </div>

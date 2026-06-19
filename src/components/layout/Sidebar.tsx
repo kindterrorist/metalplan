@@ -1,5 +1,5 @@
 import React from "react";
-import { View } from "../../../types";
+import { View, Athlete } from "../../../types";
 import {
   LayoutDashboard,
   Users,
@@ -13,7 +13,7 @@ import JalaliCalendar from "./JalaliCalendar";
 interface SidebarProps {
   currentView: View;
   setCurrentView: (view: View) => void;
-  setSelectedAthlete: (athlete: any) => void;
+  setSelectedAthlete: (athlete: Athlete | null) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = React.memo(

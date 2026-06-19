@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { View } from "../../../types";
+import { View, Athlete } from "../../../types";
 import Sidebar from "./Sidebar";
 import MobileHeader from "./MobileHeader";
 import BottomNav from "./BottomNav";
@@ -8,8 +8,8 @@ interface AppLayoutProps {
   children: ReactNode;
   currentView: View;
   setCurrentView: (view: View) => void;
-  selectedAthlete: any;
-  setSelectedAthlete: (athlete: any) => void;
+  selectedAthlete: Athlete | null;
+  setSelectedAthlete: (athlete: Athlete | null) => void;
   isDarkMode: boolean;
 }
 

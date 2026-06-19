@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { nutritionPlanSchema } from '../src/utils/validationSchemas';
 import { Athlete, NutritionPlan, DietDay, Meal, FoodItem, FoodLibraryItem } from '../types';
-import { Button, Input, Modal, Label, ConfirmDialog, Select } from './UI';
+import { Button, Input, Modal, Label, Select } from './UI';
 import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Utensils, AlertTriangle, Coffee, Flame, Droplet, Wheat, Activity, Search, StickyNote } from 'lucide-react';
-import { getFoodLibraryItems, searchFoodLibrary } from '../services/electronDb';
+import { getFoodLibraryItems } from '../services/electronDb';
 
 interface NutritionBuilderProps {
   athlete: Athlete;
@@ -279,7 +279,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
         {/* Plan Name */}
         <div className="bg-white dark:bg-dark-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700 space-y-4">
           <div>
-            <Label className="text-base text-gray-800 dark:text-gray-20">عنوان برنامه غذایی</Label>
+            <Label className="text-base text-gray-800 dark:text-gray-200">عنوان برنامه غذایی</Label>
             <Input 
               value={name} 
               onChange={(e) => {
@@ -298,7 +298,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
           <div>
-            <Label className="text-base text-gray-800 dark:text-gray-20 flex items-center gap-2">
+            <Label className="text-base text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <StickyNote size={18} />
               توضیحات
             </Label>
@@ -337,7 +337,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                                             setHasUnsavedChanges(true);
                                         }}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="font-black text-lg text-gray-800 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-30 focus:border-emerald-500 focus:outline-none transition-all w-48 px-1"
+                                        className="font-black text-lg text-gray-800 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none transition-all w-48 px-1"
                                     />
                                     <div className="flex gap-3 text-xs font-bold text-gray-500 dark:text-gray-400">
                                         <span className="flex items-center gap-1"><Flame size={12} className="text-orange-500" /> {Math.round(macros.cals)} کالری</span>
@@ -369,7 +369,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                                                     setDays(prev => prev.map(d => d.id === day.id ? {...d, meals: d.meals.map(m => m.id === meal.id ? {...m, name: e.target.value} : m)} : d));
                                                     setHasUnsavedChanges(true);
                                                 }}
-                                                className="bg-transparent font-bold text-gray-700 dark:text-gray-20 focus:outline-none border-b border-transparent focus:border-gray-400 w-32"
+                                                className="bg-transparent font-bold text-gray-700 dark:text-gray-200 focus:outline-none border-b border-transparent focus:border-gray-400 w-32"
                                             />
                                             <div className="flex gap-2">
                                                 <Button size="sm" variant="ghost" onClick={() => { setCurrentDayId(day.id); setCurrentMealId(meal.id); setIsFoodModalOpen(true); }} className="h-8 text-xs bg-white dark:bg-dark-800 shadow-sm border border-gray-200 dark:border-dark-600">
@@ -383,9 +383,9 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                                                 <div className="p-4 text-center text-xs text-gray-400 dark:text-gray-500">غذایی اضافه نشده است</div>
                                             ) : (
                                                 meal.foods.map(food => (
-                                                    <div key={food.id} className="p-3 flex justify-between items-center hover:bg-blue-50/50 dark:hover:bg-blue-90/10 transition-colors group">
+                                                    <div key={food.id} className="p-3 flex justify-between items-center hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors group">
                                                         <div>
-                                                            <div className="font-bold text-sm text-gray-800 dark:text-gray-20">{food.name} <span className="text-gray-500 font-normal mx-1">({food.amount})</span></div>
+                                                            <div className="font-bold text-sm text-gray-800 dark:text-gray-200">{food.name} <span className="text-gray-500 font-normal mx-1">({food.amount})</span></div>
                                                             <div className="text-[10px] text-gray-400 mt-0.5 flex gap-2">
                                                                 <span>{food.calories} کالری</span>
                                                                 <span>P: {food.protein}</span>
@@ -411,7 +411,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
             
             <Button 
                 variant="ghost" 
-                className="w-full border-2 border-dashed border-gray-30 dark:border-dark-600 py-6 text-gray-50 dark:text-gray-400 hover:bg-white dark:hover:bg-dark-800 transition-all rounded-3xl"
+                className="w-full border-2 border-dashed border-gray-300 dark:border-dark-600 py-6 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-dark-800 transition-all rounded-3xl"
                 onClick={handleAddDay}
             >
                 <Plus size={24} className="ml-2" /> افزودن روز جدید

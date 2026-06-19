@@ -45,17 +45,21 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
   };
 
   // Get days in Jalali month
-  const getDaysInMonth = (jm: number): number => {
+  const getDaysInMonth = (jy: number, jm: number): number => {
     if (jm <= 6) return 31;
     if (jm < 12) return 30;
-    return 29; // Esfand
+    // Esfand: check if it's a leap year
+    const gregorian = toGregorian(jy, jm, 1);
+    const date = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd + 29);
+    const nextDay = toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    return nextDay.jd > 29 ? 30 : 29;
   };
 
   const displayYear = today.jy + Math.floor(currentMonth / 12);
   const displayMonth = ((today.jm - 1 + (currentMonth % 12)) % 12) + 1;
 
   const firstDay = getFirstDayOfMonth(displayYear, displayMonth);
-  const daysInMonth = getDaysInMonth(displayMonth);
+  const daysInMonth = getDaysInMonth(displayYear, displayMonth);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const blanks = Array.from({ length: firstDay }, (_, i) => i);
 
@@ -73,7 +77,7 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
         <button
           onClick={handleNextMonth}
           className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-          aria-label="ماه قبل"
+          aria-label="ماه بعد"
         >
           <ChevronLeft size={18} />
         </button>
@@ -85,7 +89,7 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
         <button
           onClick={handlePrevMonth}
           className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-          aria-label="ماه بعد"
+          aria-label="ماه قبل"
         >
           <ChevronRight size={18} />
         </button>
