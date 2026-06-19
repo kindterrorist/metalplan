@@ -27,35 +27,63 @@ const {
 const { BackupManager } = require("../utils/backupManager.cjs");
 
 let mainWindow;
+let splashWindow;
 let backupManager;
 
-function createWindow() {
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 350,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: true,
+    center: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    icon: path.join(__dirname, "../build/icon.png"),
+  });
+
+  splashWindow.loadFile(path.join(__dirname, "splash.html"));
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.js"),
     },
     title: "MetalPlans",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0a0e27",
     icon: path.join(__dirname, "../build/icon.png"),
   });
 
-  // Load the app - Check if production build exists
   const distPath = path.join(__dirname, "../dist-react/index.html");
 
   if (fs.existsSync(distPath)) {
-    // Production mode
     mainWindow.loadFile(distPath);
   } else {
-    // Development mode - load from Vite dev server
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   }
+
+  mainWindow.once("ready-to-show", () => {
+    setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+      mainWindow.show();
+    }, 400);
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -64,21 +92,26 @@ function createWindow() {
 
 // Initialize database when app is ready
 app.whenReady().then(() => {
-  initDatabase();
+  createSplashWindow();
 
-  // Initialize backup manager
-  const userDataPath = app.getPath("userData");
-  const dbPath = path.join(userDataPath, "metalplans.db");
-  backupManager = new BackupManager(dbPath);
-  backupManager.startBackupScheduler();
+  // Defer heavy init until after splash is visible
+  setTimeout(() => {
+    initDatabase();
 
-  createWindow();
+    const userDataPath = app.getPath("userData");
+    const dbPath = path.join(userDataPath, "metalplans.db");
+    backupManager = new BackupManager(dbPath);
+    backupManager.startBackupScheduler();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+    createMainWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createSplashWindow();
+        setTimeout(() => createMainWindow(), 300);
+      }
+    });
+  }, 300);
 });
 
 app.on("window-all-closed", () => {
