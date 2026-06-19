@@ -15,6 +15,7 @@ export interface ExerciseSet {
   reps: string; // string to allow "12-15" or "Failure"
   rest?: string;
   notes?: string;
+  supersetGroupId?: string; // Exercises with same group are performed as superset
 }
 
 export interface WorkoutDay {

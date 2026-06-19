@@ -8,7 +8,7 @@ import {
   ExerciseSet,
 } from "../types";
 import { getExercises } from "../services/electronDb";
-import { Button, Input, Card, Label, Modal } from "./UI";
+import { Button, Input, Label, Modal } from "./UI";
 import {
   Plus,
   Trash2,
@@ -21,7 +21,26 @@ import {
   AlertTriangle,
   GripVertical,
   StickyNote,
+  Search,
+  Loader2,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface PlanBuilderProps {
   athlete: Athlete;
@@ -67,9 +86,130 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
   // State for unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isLoadingExercises, setIsLoadingExercises] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templates, setTemplates] = useState<Array<{ name: string; data: WorkoutDay[] }>>([]);
+  const [selectedExercises, setSelectedExercises] = useState<Record<string, Set<number>>>({});
+
+  const validateSets = (value: string): boolean => /^\d+(-\d+)?$/.test(value);
+  const validateReps = (value: string): boolean => /^\d+(-\d+)?|Failure$/i.test(value);
+
+  const getFieldError = (dayId: string, exIndex: number, field: string): string | undefined => {
+    return fieldErrors[`${dayId}-${exIndex}-${field}`];
+  };
+
+  const setFieldError = (dayId: string, exIndex: number, field: string, error: string) => {
+    setFieldErrors(prev => ({ ...prev, [`${dayId}-${exIndex}-${field}`]: error }));
+  };
+
+  const clearFieldError = (dayId: string, exIndex: number, field: string) => {
+    setFieldErrors(prev => {
+      const next = { ...prev };
+      delete next[`${dayId}-${exIndex}-${field}`];
+      return next;
+    });
+  };
 
   useEffect(() => {
-    getExercises().then(setExercises);
+    try {
+      const saved = localStorage.getItem('workoutPlanTemplates');
+      if (saved) setTemplates(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const saveAsTemplate = () => {
+    const templateName = prompt('نام قالب:');
+    if (!templateName) return;
+    const newTemplates = [...templates, { name: templateName, data: days }];
+    setTemplates(newTemplates);
+    localStorage.setItem('workoutPlanTemplates', JSON.stringify(newTemplates));
+  };
+
+  const loadTemplate = (template: { name: string; data: WorkoutDay[] }) => {
+    const newDays = template.data.map(d => ({ ...d, id: crypto.randomUUID() }));
+    setDays(newDays);
+    setExpandedDay(newDays[0]?.id || null);
+    setShowTemplateModal(false);
+    setHasUnsavedChanges(true);
+  };
+
+  const deleteTemplate = (index: number) => {
+    const newTemplates = templates.filter((_, i) => i !== index);
+    setTemplates(newTemplates);
+    localStorage.setItem('workoutPlanTemplates', JSON.stringify(newTemplates));
+  };
+
+  const toggleExerciseSelection = (dayId: string, exIndex: number) => {
+    setSelectedExercises(prev => {
+      const daySet = prev[dayId] ? new Set(prev[dayId]) : new Set<number>();
+      if (daySet.has(exIndex)) {
+        daySet.delete(exIndex);
+      } else {
+        daySet.add(exIndex);
+      }
+      return { ...prev, [dayId]: daySet };
+    });
+  };
+
+  const createSuperset = (dayId: string) => {
+    const selected = selectedExercises[dayId];
+    if (!selected || selected.size < 2) return;
+    const groupId = crypto.randomUUID();
+    setDays(prev => prev.map(d => {
+      if (d.id !== dayId) return d;
+      const newExercises = d.exercises.map((ex, idx) => {
+        if (selected.has(idx)) {
+          return { ...ex, supersetGroupId: groupId };
+        }
+        return ex;
+      });
+      return { ...d, exercises: newExercises };
+    }));
+    setSelectedExercises(prev => ({ ...prev, [dayId]: new Set() }));
+    setHasUnsavedChanges(true);
+  };
+
+  const removeSuperset = (dayId: string, groupId: string) => {
+    setDays(prev => prev.map(d => {
+      if (d.id !== dayId) return d;
+      const newExercises = d.exercises.map(ex => {
+        if (ex.supersetGroupId === groupId) {
+          const { supersetGroupId, ...rest } = ex;
+          return rest;
+        }
+        return ex;
+      });
+      return { ...d, exercises: newExercises };
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (dayId: string, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+
+    setDays(prev => prev.map(d => {
+      if (d.id !== dayId) return d;
+      return { ...d, exercises: arrayMove(d.exercises, oldIndex, newIndex) };
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  useEffect(() => {
+    setIsLoadingExercises(true);
+    getExercises()
+      .then(setExercises)
+      .catch(() => {})
+      .finally(() => setIsLoadingExercises(false));
   }, []);
 
   const handleAddExerciseToDay = (exercise: Exercise) => {
@@ -156,7 +296,7 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
 
   const handleAddDay = () => {
     const newDay: WorkoutDay = {
-      id: Math.random().toString(),
+      id: crypto.randomUUID(),
       dayName: `روز ${days.length + 1}`,
       exercises: [],
       isRestDay: false,
@@ -180,12 +320,11 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
   };
 
   const handleSave = () => {
-    // Validate the form data using Zod
     const validationResult = workoutPlanSchema.safeParse({
       id: initialPlan?.id || crypto.randomUUID?.() || `plan-${Date.now()}`,
       athleteId: athlete.id,
       name,
-      startDate: new Date().toISOString(),
+      startDate: initialPlan?.startDate || new Date().toISOString(),
       days,
       notes,
       created_at: initialPlan?.created_at || Date.now(),
@@ -217,6 +356,9 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
       e.muscleGroup.includes(searchTerm)
   );
 
+  const totalExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
+  const activeDays = days.filter(d => !d.isRestDay && d.exercises.length > 0).length;
+
   return (
     <div className="h-full flex flex-col bg-gray-50/50 dark:bg-dark-900 transition-colors duration-300">
       {/* Header */}
@@ -225,13 +367,24 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
           <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
             طراحی برنامه
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-            ورزشکار: {athlete.fullName}
-          </p>
+          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 font-medium">
+            <span>ورزشکار: {athlete.fullName}</span>
+            {totalExercises > 0 && (
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                {activeDays} روز فعال • {totalExercises} حرکت
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-3">
           <Button variant="ghost" onClick={handleCancelClick}>
             لغو
+          </Button>
+          <Button variant="ghost" onClick={() => setShowTemplateModal(true)}>
+            قالب‌ها
+          </Button>
+          <Button variant="ghost" onClick={saveAsTemplate}>
+            ذخیره قالب
           </Button>
           <Button onClick={handleSave} className="flex gap-2 px-6">
             <Save size={18} /> ذخیره
@@ -270,11 +423,18 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
               <StickyNote size={18} />
               توضیحات
             </Label>
-            <textarea
+            <Input
               value={notes}
               onChange={(e) => {
                 setNotes(e.target.value);
                 setHasUnsavedChanges(true);
+                if (errors.notes) {
+                  setErrors((prev) => {
+                    const newErrors = { ...prev };
+                    delete newErrors.notes;
+                    return newErrors;
+                  });
+                }
               }}
               placeholder="نکات مربی، هدف‌های برنامه، یادداشت‌های خاص..."
               className="w-full mt-2 p-3 rounded-2xl border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:border-blue-500 dark:text-white text-sm resize-none h-24 transition-all"
@@ -408,113 +568,177 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-3 mb-4">
-                          {day.exercises.map((ex, idx) => (
-                            <div
-                              key={idx}
-                              className="flex flex-col lg:flex-row gap-4 p-4 border border-gray-100 dark:border-dark-700 rounded-2xl bg-white dark:bg-dark-800 shadow-sm relative group hover:border-blue-200 dark:hover:border-blue-900/50 transition-colors animate-slide-up"
-                            >
-                              {/* Drag Handle Placeholder (Visual only for now) */}
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 dark:text-dark-600 opacity-50 hidden lg:block">
-                                <GripVertical size={16} />
-                              </div>
-
-                              <div className="flex-1 pr-4">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <p className="font-black text-gray-800 dark:text-gray-200 text-lg">
-                                      {ex.exerciseName}
-                                    </p>
-                                    {ex.notes && ex.notes.trim().length > 0 && (
-                                      <div
-                                        className="text-amber-500 bg-amber-50 dark:bg-amber-900/20 p-1 rounded-lg"
-                                        title="دارای یادداشت"
-                                      >
-                                        <StickyNote size={16} />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={() => removeExercise(day.id, idx)}
-                                    className="text-gray-300 hover:text-red-500 transition-colors p-1"
-                                  >
-                                    <Trash2 size={18} />
-                                  </button>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                                      ست (Sets)
-                                    </label>
-                                    <Input
-                                      value={ex.sets}
-                                      onChange={(e) =>
-                                        updateExerciseSet(
-                                          day.id,
-                                          idx,
-                                          "sets",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm"
-                                      placeholder="3"
-                                    />
-                                  </div>
-                                  <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                                      تکرار (Reps)
-                                    </label>
-                                    <Input
-                                      value={ex.reps}
-                                      onChange={(e) =>
-                                        updateExerciseSet(
-                                          day.id,
-                                          idx,
-                                          "reps",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm"
-                                      placeholder="12-15"
-                                    />
-                                  </div>
-                                  <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                                      استراحت
-                                    </label>
-                                    <Input
-                                      value={ex.rest || ""}
-                                      onChange={(e) =>
-                                        updateExerciseSet(
-                                          day.id,
-                                          idx,
-                                          "rest",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm"
-                                      placeholder="-"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="mt-3">
-                                  <Input
-                                    value={ex.notes || ""}
-                                    onChange={(e) =>
-                                      updateExerciseSet(
-                                        day.id,
-                                        idx,
-                                        "notes",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-9 bg-gray-50 dark:bg-dark-900 border-transparent focus:bg-white dark:focus:bg-dark-800 text-xs"
-                                    placeholder="نکات اجرایی (اختیاری)..."
-                                  />
-                                </div>
-                              </div>
+                          {/* Superset Action Bar */}
+                          {selectedExercises[day.id] && selectedExercises[day.id].size >= 2 && (
+                            <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl mb-2">
+                              <span className="text-sm font-bold text-purple-700 dark:text-purple-400">{selectedExercises[day.id].size} حرکت انتخاب شده</span>
+                              <Button size="sm" onClick={() => createSuperset(day.id)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                                ایجاد سوپرست
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setSelectedExercises(prev => ({ ...prev, [day.id]: new Set() }))}>
+                                انصراف
+                              </Button>
                             </div>
-                          ))}
+                          )}
+
+                          {/* Group exercises by supersetGroupId */}
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => handleDragEnd(day.id, event)}>
+                            <SortableContext items={day.exercises.map((_, i) => i.toString())} strategy={verticalListSortingStrategy}>
+                              {(() => {
+                            const groups: Array<{ groupId: string | null; exercises: Array<{ ex: ExerciseSet; idx: number }> }> = [];
+                            const seen = new Set<string>();
+                            
+                            day.exercises.forEach((ex, idx) => {
+                              if (ex.supersetGroupId) {
+                                if (!seen.has(ex.supersetGroupId)) {
+                                  seen.add(ex.supersetGroupId);
+                                  groups.push({
+                                    groupId: ex.supersetGroupId,
+                                    exercises: day.exercises
+                                      .map((e, i) => ({ ex: e, idx: i }))
+                                      .filter(e => e.ex.supersetGroupId === ex.supersetGroupId)
+                                  });
+                                }
+                              } else {
+                                groups.push({ groupId: null, exercises: [{ ex, idx }] });
+                              }
+                            });
+
+                            return groups.map((group, gIdx) => {
+                              const isSuperset = group.groupId !== null;
+                              
+                              if (isSuperset) {
+                                const supersetRest = group.exercises[group.exercises.length - 1]?.ex.rest;
+                                return (
+                                  <div key={`group-${gIdx}`} className="border-2 border-purple-300 dark:border-purple-700 rounded-2xl overflow-hidden">
+                                    <div className="flex items-center justify-between px-4 py-2 bg-purple-50 dark:bg-purple-900/30 border-b border-purple-200 dark:border-purple-700">
+                                      <span className="text-xs font-bold text-purple-700 dark:text-purple-400">سوپرست ({group.exercises.length} حرکت)</span>
+                                      <div className="flex items-center gap-2">
+                                        {supersetRest && (
+                                          <span className="text-[10px] text-purple-600 dark:text-purple-400">استراحت: {supersetRest}</span>
+                                        )}
+                                        <button
+                                          onClick={() => removeSuperset(day.id, group.groupId!)}
+                                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        >
+                                          جداسازی
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="divide-y divide-purple-100 dark:divide-purple-800">
+                                      {group.exercises.map(({ ex, idx }) => (
+                                        <div key={idx} className={`flex flex-col lg:flex-row gap-4 p-4 bg-white dark:bg-dark-800 ${selectedExercises[day.id]?.has(idx) ? 'bg-purple-50 dark:bg-purple-900/20' : ''}`}>
+                                          <div className="flex-1 pr-4">
+                                            <div className="flex justify-between items-start">
+                                              <div className="flex items-center gap-2 mb-3">
+                                                <button
+                                                  onClick={() => toggleExerciseSelection(day.id, idx)}
+                                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                                    selectedExercises[day.id]?.has(idx)
+                                                      ? 'bg-purple-600 border-purple-600 text-white'
+                                                      : 'border-gray-300 dark:border-gray-600 hover:border-purple-400'
+                                                  }`}
+                                                >
+                                                  {selectedExercises[day.id]?.has(idx) && (
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                      <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                  )}
+                                                </button>
+                                                <p className="font-black text-gray-800 dark:text-gray-200 text-lg">{ex.exerciseName}</p>
+                                                {ex.notes && ex.notes.trim().length > 0 && (
+                                                  <div className="text-amber-500 bg-amber-50 dark:bg-amber-900/20 p-1 rounded-lg" title="دارای یادداشت">
+                                                    <StickyNote size={16} />
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <button onClick={() => removeExercise(day.id, idx)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                                                <Trash2 size={18} />
+                                              </button>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                              <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">ست</label>
+                                                <Input value={ex.sets} onChange={(e) => { updateExerciseSet(day.id, idx, "sets", e.target.value); if (validateSets(e.target.value) || e.target.value === '') clearFieldError(day.id, idx, 'sets'); }} onBlur={(e) => { if (e.target.value && !validateSets(e.target.value)) setFieldError(day.id, idx, 'sets', 'فرمت نامعتبر'); }} className={`h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm ${getFieldError(day.id, idx, 'sets') ? 'border-red-500' : ''}`} placeholder="3" />
+                                              </div>
+                                              <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">تکرار</label>
+                                                <Input value={ex.reps} onChange={(e) => { updateExerciseSet(day.id, idx, "reps", e.target.value); if (validateReps(e.target.value) || e.target.value === '') clearFieldError(day.id, idx, 'reps'); }} onBlur={(e) => { if (e.target.value && !validateReps(e.target.value)) setFieldError(day.id, idx, 'reps', 'فرمت نامعتبر'); }} className={`h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm ${getFieldError(day.id, idx, 'reps') ? 'border-red-500' : ''}`} placeholder="12" />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Standalone exercise
+                              return group.exercises.map(({ ex, idx }) => (
+                                <div
+                                  key={idx}
+                                  className={`flex flex-col lg:flex-row gap-4 p-4 border border-gray-100 dark:border-dark-700 rounded-2xl bg-white dark:bg-dark-800 shadow-sm relative group hover:border-blue-200 dark:hover:border-blue-900/50 transition-colors animate-slide-up ${selectedExercises[day.id]?.has(idx) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700' : ''}`}
+                                >
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 dark:text-dark-600 opacity-50 hidden lg:block">
+                                    <GripVertical size={16} />
+                                  </div>
+                                  <div className="flex-1 pr-4">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <button
+                                          onClick={() => toggleExerciseSelection(day.id, idx)}
+                                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                            selectedExercises[day.id]?.has(idx)
+                                              ? 'bg-blue-600 border-blue-600 text-white'
+                                              : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                                          }`}
+                                        >
+                                          {selectedExercises[day.id]?.has(idx) && (
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                              <polyline points="20 6 9 17 4 12" />
+                                            </svg>
+                                          )}
+                                        </button>
+                                        <p className="font-black text-gray-800 dark:text-gray-200 text-lg">
+                                          {ex.exerciseName}
+                                        </p>
+                                        {ex.notes && ex.notes.trim().length > 0 && (
+                                          <div className="text-amber-500 bg-amber-50 dark:bg-amber-900/20 p-1 rounded-lg" title="دارای یادداشت">
+                                            <StickyNote size={16} />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button onClick={() => removeExercise(day.id, idx)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                                        <Trash2 size={18} />
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">ست (Sets)</label>
+                                        <Input value={ex.sets} onChange={(e) => { updateExerciseSet(day.id, idx, "sets", e.target.value); if (validateSets(e.target.value) || e.target.value === '') clearFieldError(day.id, idx, 'sets'); }} onBlur={(e) => { if (e.target.value && !validateSets(e.target.value)) setFieldError(day.id, idx, 'sets', 'فرمت نامعتبر (مثال: 3 یا 3-4)'); }} className={`h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm ${getFieldError(day.id, idx, 'sets') ? 'border-red-500' : ''}`} placeholder="3" />
+                                        {getFieldError(day.id, idx, 'sets') && <p className="text-[10px] text-red-500 mt-1">{getFieldError(day.id, idx, 'sets')}</p>}
+                                      </div>
+                                      <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">تکرار (Reps)</label>
+                                        <Input value={ex.reps} onChange={(e) => { updateExerciseSet(day.id, idx, "reps", e.target.value); if (validateReps(e.target.value) || e.target.value === '') clearFieldError(day.id, idx, 'reps'); }} onBlur={(e) => { if (e.target.value && !validateReps(e.target.value)) setFieldError(day.id, idx, 'reps', 'فرمت نامعتبر (مثال: 12, 12-15, Failure)'); }} className={`h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm ${getFieldError(day.id, idx, 'reps') ? 'border-red-500' : ''}`} placeholder="12-15" />
+                                        {getFieldError(day.id, idx, 'reps') && <p className="text-[10px] text-red-500 mt-1">{getFieldError(day.id, idx, 'reps')}</p>}
+                                      </div>
+                                      <div className="bg-gray-50 dark:bg-dark-900 p-2 rounded-xl border border-gray-100 dark:border-dark-700">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">استراحت</label>
+                                        <Input value={ex.rest || ""} onChange={(e) => updateExerciseSet(day.id, idx, "rest", e.target.value)} className="h-8 bg-white dark:bg-dark-800 text-center font-bold text-sm" placeholder="60s" />
+                                      </div>
+                                    </div>
+                                    <div className="mt-3">
+                                      <Input value={ex.notes || ""} onChange={(e) => updateExerciseSet(day.id, idx, "notes", e.target.value)} className="h-9 bg-gray-50 dark:bg-dark-900 border-transparent focus:bg-white dark:focus:bg-dark-800 text-xs" placeholder="نکات اجرایی (اختیاری)..." />
+                                    </div>
+                                  </div>
+                                </div>
+                              ));
+                            });
+                          })()}
+                            </SortableContext>
+                          </DndContext>
                         </div>
                       )}
 
@@ -575,60 +799,53 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
                   className="pl-10 bg-white dark:bg-dark-800"
                 />
                 <div className="absolute left-3 top-3 text-gray-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
+                  <Search size={18} />
                 </div>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-              {filteredExercises.map((ex) => (
-                <div
-                  key={ex.id}
-                  className="p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-2xl cursor-pointer flex justify-between items-center transition-colors border-b border-gray-50 dark:border-dark-700 last:border-0 group animate-fade-in"
-                  onClick={() => handleAddExerciseToDay(ex)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-gray-400 flex items-center justify-center group-hover:bg-blue-200 group-hover:text-blue-700 dark:group-hover:bg-blue-800 dark:group-hover:text-white transition-colors">
-                      <Dumbbell size={20} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800 dark:text-gray-200">
-                        {ex.name}
-                      </p>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-dark-700 px-2 py-0.5 rounded-md mt-1 inline-block">
-                        {ex.muscleGroup}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 dark:hover:bg-blue-600 dark:hover:border-blue-600 rounded-xl"
-                  >
-                    <Plus size={18} />
-                  </Button>
+              {isLoadingExercises ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 size={32} className="animate-spin text-blue-500" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">در حال بارگذاری حرکات...</p>
                 </div>
-              ))}
-              {filteredExercises.length === 0 && (
+              ) : filteredExercises.length === 0 ? (
                 <div className="text-center p-12 text-gray-400 flex flex-col items-center gap-3">
                   <div className="w-16 h-16 bg-gray-100 dark:bg-dark-800 rounded-full flex items-center justify-center">
                     <Dumbbell size={32} className="opacity-20" />
                   </div>
                   <p>حرکتی یافت نشد</p>
                 </div>
+              ) : (
+                filteredExercises.map((ex) => (
+                  <div
+                    key={ex.id}
+                    className="p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-2xl cursor-pointer flex justify-between items-center transition-colors border-b border-gray-50 dark:border-dark-700 last:border-0 group animate-fade-in"
+                    onClick={() => handleAddExerciseToDay(ex)}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-gray-400 flex items-center justify-center group-hover:bg-blue-200 group-hover:text-blue-700 dark:group-hover:bg-blue-800 dark:group-hover:text-white transition-colors">
+                        <Dumbbell size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800 dark:text-gray-200">
+                          {ex.name}
+                        </p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-dark-700 px-2 py-0.5 rounded-md mt-1 inline-block">
+                          {ex.muscleGroup}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 dark:hover:bg-blue-600 dark:hover:border-blue-600 rounded-xl"
+                    >
+                      <Plus size={18} />
+                    </Button>
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -674,6 +891,36 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
               بله، حذف شود
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Template Modal */}
+      <Modal isOpen={showTemplateModal} onClose={() => setShowTemplateModal(false)} title="قالب‌های ذخیره شده">
+        <div className="space-y-4">
+          {templates.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Dumbbell size={40} className="mx-auto mb-3 opacity-30" />
+              <p>هنوز قالبی ذخیره نشده است</p>
+              <p className="text-xs mt-1">از دکمه "ذخیره قالب" برای ساخت قالب جدید استفاده کنید</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((template, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-900 rounded-xl border border-gray-200 dark:border-dark-700">
+                  <div>
+                    <p className="font-bold text-gray-800 dark:text-white">{template.name}</p>
+                    <p className="text-xs text-gray-500">{template.data.length} روز</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => loadTemplate(template)}>بارگذاری</Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteTemplate(idx)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Modal>
 

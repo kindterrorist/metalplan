@@ -52,7 +52,11 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
 
   // Confirmation State
  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+ const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+ const [dayToDelete, setDayToDelete] = useState<string | null>(null);
+ const [foodFormErrors, setFoodFormErrors] = useState<Record<string, string>>({});
+ const [showTemplateModal, setShowTemplateModal] = useState(false);
+ const [templates, setTemplates] = useState<Array<{ name: string; data: DietDay[] }>>([]);
 
   // Load food library items when modal opens
   useEffect(() => {
@@ -60,6 +64,40 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       loadLibraryFoods();
     }
   }, [isFoodModalOpen, foodModalTab]);
+
+  // Load templates
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('nutritionPlanTemplates');
+      if (saved) setTemplates(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const saveAsTemplate = () => {
+    const templateName = prompt('نام قالب:');
+    if (!templateName) return;
+    const newTemplates = [...templates, { name: templateName, data: days }];
+    setTemplates(newTemplates);
+    localStorage.setItem('nutritionPlanTemplates', JSON.stringify(newTemplates));
+  };
+
+  const loadTemplate = (template: { name: string; data: DietDay[] }) => {
+    const newDays = template.data.map(d => ({
+      ...d,
+      id: crypto.randomUUID(),
+      meals: d.meals.map(m => ({ ...m, id: crypto.randomUUID() }))
+    }));
+    setDays(newDays);
+    setExpandedDay(newDays[0]?.id || null);
+    setShowTemplateModal(false);
+    setHasUnsavedChanges(true);
+  };
+
+  const deleteTemplate = (index: number) => {
+    const newTemplates = templates.filter((_, i) => i !== index);
+    setTemplates(newTemplates);
+    localStorage.setItem('nutritionPlanTemplates', JSON.stringify(newTemplates));
+  };
 
   // Filter library foods based on search query
   useEffect(() => {
@@ -137,6 +175,22 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       return { cals, prot, carb, fat };
   };
 
+  const getMacroPercentage = (actual: number, target?: number): number => {
+      if (!target || target <= 0) return 0;
+      return Math.min(Math.round((actual / target) * 100), 100);
+  };
+
+  const getMacroColor = (percentage: number): string => {
+      if (percentage >= 90 && percentage <= 110) return 'text-emerald-600 dark:text-emerald-400';
+      if (percentage < 90) return 'text-amber-600 dark:text-amber-400';
+      return 'text-red-600 dark:text-red-400';
+  };
+
+  const updateDayMacroTarget = (dayId: string, field: 'targetCalories' | 'targetProtein' | 'targetCarbs' | 'targetFat', value: number) => {
+      setDays(prev => prev.map(d => d.id === dayId ? { ...d, [field]: value || undefined } : d));
+      setHasUnsavedChanges(true);
+  };
+
   const handleAddDay = () => {
     const newDay: DietDay = {
         id: crypto.randomUUID(),
@@ -173,12 +227,34 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
  };
 
   const handleDeleteDay = (dayId: string) => {
-      setDays(prev => prev.filter(d => d.id !== dayId));
-      setHasUnsavedChanges(true);
+      setDayToDelete(dayId);
+  }
+
+  const confirmDeleteDay = () => {
+      if (dayToDelete) {
+          setDays(prev => prev.filter(d => d.id !== dayToDelete));
+          if (expandedDay === dayToDelete) setExpandedDay(null);
+          setDayToDelete(null);
+          setHasUnsavedChanges(true);
+      }
   }
 
   const handleSaveFood = () => {
-      if(!currentDayId || !currentMealId || !foodForm.name) return;
+      const newErrors: Record<string, string> = {};
+      if (!foodForm.name?.trim()) newErrors.name = 'نام غذا الزامی است';
+      if (!foodForm.amount?.trim()) newErrors.amount = 'مقدار غذا الزامی است';
+      if (foodForm.calories !== undefined && foodForm.calories < 0) newErrors.calories = 'کالری نمی‌تواند منفی باشد';
+      if (foodForm.protein !== undefined && foodForm.protein < 0) newErrors.protein = 'پروتئین نمی‌تواند منفی باشد';
+      if (foodForm.carbs !== undefined && foodForm.carbs < 0) newErrors.carbs = 'کربوهیدرات نمی‌تواند منفی باشد';
+      if (foodForm.fat !== undefined && foodForm.fat < 0) newErrors.fat = 'چربی نمی‌تواند منفی باشد';
+      
+      if (Object.keys(newErrors).length > 0) {
+          setFoodFormErrors(newErrors);
+          return;
+      }
+      setFoodFormErrors({});
+      
+      if(!currentDayId || !currentMealId) return;
       
       const newFood: FoodItem = {
           id: crypto.randomUUID(),
@@ -231,12 +307,11 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
   };
 
   const handleSavePlan = () => {
-    // Validate the form data using Zod
     const validationResult = nutritionPlanSchema.safeParse({
       id: initialPlan?.id || crypto.randomUUID?.() || `nutrition-plan-${Date.now()}`,
       athleteId: athlete.id,
       name,
-      startDate: new Date().toISOString(),
+      startDate: initialPlan?.startDate || new Date().toISOString(),
       days,
       notes,
       created_at: initialPlan?.created_at || Date.now()
@@ -259,16 +334,28 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
     setErrors({}); // Clear errors after successful submission
   };
 
+  const totalFoods = days.reduce((sum, d) => sum + d.meals.reduce((mSum, m) => mSum + m.foods.length, 0), 0);
+  const totalMeals = days.reduce((sum, d) => sum + d.meals.length, 0);
+
   return (
     <div className="h-full flex flex-col bg-gray-50/50 dark:bg-dark-900 transition-colors duration-300">
       {/* Header */}
       <div className="bg-white/80 dark:bg-dark-800/80 backdrop-blur-md p-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div>
           <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">طراحی رژیم غذایی</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">ورزشکار: {athlete.fullName}</p>
+          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 font-medium">
+            <span>ورزشکار: {athlete.fullName}</span>
+            {totalFoods > 0 && (
+              <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">
+                {days.length} روز • {totalMeals} وعده • {totalFoods} غذا
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-3">
           <Button variant="ghost" onClick={() => hasUnsavedChanges ? setShowExitConfirm(true) : onCancel()}>لغو</Button>
+          <Button variant="ghost" onClick={() => setShowTemplateModal(true)}>قالب‌ها</Button>
+          <Button variant="ghost" onClick={saveAsTemplate}>ذخیره قالب</Button>
           <Button onClick={handleSavePlan} className="flex gap-2 px-6 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
             <Save size={18} /> ذخیره برنامه
           </Button>
@@ -340,10 +427,22 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                                         className="font-black text-lg text-gray-800 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-emerald-500 focus:outline-none transition-all w-48 px-1"
                                     />
                                     <div className="flex gap-3 text-xs font-bold text-gray-500 dark:text-gray-400">
-                                        <span className="flex items-center gap-1"><Flame size={12} className="text-orange-500" /> {Math.round(macros.cals)} کالری</span>
-                                        <span className="flex items-center gap-1"><Activity size={12} className="text-blue-500" /> P: {Math.round(macros.prot)}g</span>
-                                        <span className="flex items-center gap-1"><Wheat size={12} className="text-amber-500" /> C: {Math.round(macros.carb)}g</span>
-                                        <span className="flex items-center gap-1"><Droplet size={12} className="text-purple-500" /> F: {Math.round(macros.fat)}g</span>
+                                        <span className="flex items-center gap-1">
+                                            <Flame size={12} className="text-orange-500" /> 
+                                            {Math.round(macros.cals)}{day.targetCalories ? `/${day.targetCalories}` : ''} کالری
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Activity size={12} className="text-blue-500" /> 
+                                            P: {Math.round(macros.prot)}{day.targetProtein ? `/${day.targetProtein}` : ''}g
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Wheat size={12} className="text-amber-500" /> 
+                                            C: {Math.round(macros.carb)}{day.targetCarbs ? `/${day.targetCarbs}` : ''}g
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Droplet size={12} className="text-purple-500" /> 
+                                            F: {Math.round(macros.fat)}{day.targetFat ? `/${day.targetFat}` : ''}g
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -360,6 +459,93 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
 
                         {expandedDay === day.id && (
                             <div className="p-5 border-t border-gray-100 dark:border-dark-700 bg-gray-50/50 dark:bg-dark-900/20 space-y-6">
+                                {/* Macro Targets */}
+                                <div className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 rounded-2xl p-4">
+                                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">اهداف روزانه</p>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-orange-500 block mb-1">کالری</label>
+                                            <input
+                                                type="number"
+                                                value={day.targetCalories || ''}
+                                                onChange={(e) => updateDayMacroTarget(day.id, 'targetCalories', Number(e.target.value))}
+                                                className="w-full p-1.5 text-center text-xs rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:outline-none focus:border-emerald-500"
+                                                placeholder="هدف"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-blue-500 block mb-1">پروتئین</label>
+                                            <input
+                                                type="number"
+                                                value={day.targetProtein || ''}
+                                                onChange={(e) => updateDayMacroTarget(day.id, 'targetProtein', Number(e.target.value))}
+                                                className="w-full p-1.5 text-center text-xs rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:outline-none focus:border-emerald-500"
+                                                placeholder="g"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-amber-500 block mb-1">کربوهیدرات</label>
+                                            <input
+                                                type="number"
+                                                value={day.targetCarbs || ''}
+                                                onChange={(e) => updateDayMacroTarget(day.id, 'targetCarbs', Number(e.target.value))}
+                                                className="w-full p-1.5 text-center text-xs rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:outline-none focus:border-emerald-500"
+                                                placeholder="g"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-purple-500 block mb-1">چربی</label>
+                                            <input
+                                                type="number"
+                                                value={day.targetFat || ''}
+                                                onChange={(e) => updateDayMacroTarget(day.id, 'targetFat', Number(e.target.value))}
+                                                className="w-full p-1.5 text-center text-xs rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800 focus:outline-none focus:border-emerald-500"
+                                                placeholder="g"
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* Progress Bars */}
+                                    {(day.targetCalories || day.targetProtein || day.targetCarbs || day.targetFat) && (
+                                        <div className="mt-3 space-y-2">
+                                            {day.targetCalories && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] w-12 text-gray-500">کالری</span>
+                                                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all ${getMacroPercentage(macros.cals, day.targetCalories) >= 90 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${getMacroPercentage(macros.cals, day.targetCalories)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] w-8 text-right ${getMacroColor(getMacroPercentage(macros.cals, day.targetCalories))}`}>{getMacroPercentage(macros.cals, day.targetCalories)}%</span>
+                                                </div>
+                                            )}
+                                            {day.targetProtein && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] w-12 text-gray-500">پروتئین</span>
+                                                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all ${getMacroPercentage(macros.prot, day.targetProtein) >= 90 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${getMacroPercentage(macros.prot, day.targetProtein)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] w-8 text-right ${getMacroColor(getMacroPercentage(macros.prot, day.targetProtein))}`}>{getMacroPercentage(macros.prot, day.targetProtein)}%</span>
+                                                </div>
+                                            )}
+                                            {day.targetCarbs && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] w-12 text-gray-500">کربو</span>
+                                                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all ${getMacroPercentage(macros.carb, day.targetCarbs) >= 90 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${getMacroPercentage(macros.carb, day.targetCarbs)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] w-8 text-right ${getMacroColor(getMacroPercentage(macros.carb, day.targetCarbs))}`}>{getMacroPercentage(macros.carb, day.targetCarbs)}%</span>
+                                                </div>
+                                            )}
+                                            {day.targetFat && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] w-12 text-gray-500">چربی</span>
+                                                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all ${getMacroPercentage(macros.fat, day.targetFat) >= 90 ? 'bg-emerald-500' : 'bg-purple-500'}`} style={{ width: `${getMacroPercentage(macros.fat, day.targetFat)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[10px] w-8 text-right ${getMacroColor(getMacroPercentage(macros.fat, day.targetFat))}`}>{getMacroPercentage(macros.fat, day.targetFat)}%</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 {day.meals.map((meal, mIdx) => (
                                     <div key={meal.id} className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 rounded-2xl overflow-hidden">
                                         <div className="bg-gray-100 dark:bg-dark-700 px-4 py-3 flex justify-between items-center">
@@ -371,7 +557,17 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                                                 }}
                                                 className="bg-transparent font-bold text-gray-700 dark:text-gray-200 focus:outline-none border-b border-transparent focus:border-gray-400 w-32"
                                             />
-                                            <div className="flex gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="time"
+                                                    value={meal.time || ''}
+                                                    onChange={(e) => {
+                                                        setDays(prev => prev.map(d => d.id === day.id ? {...d, meals: d.meals.map(m => m.id === meal.id ? {...m, time: e.target.value || undefined} : m)} : d));
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-dark-600 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                />
                                                 <Button size="sm" variant="ghost" onClick={() => { setCurrentDayId(day.id); setCurrentMealId(meal.id); setIsFoodModalOpen(true); }} className="h-8 text-xs bg-white dark:bg-dark-800 shadow-sm border border-gray-200 dark:border-dark-600">
                                                     <Plus size={14} className="ml-1" /> افزودن غذا
                                                 </Button>
@@ -420,7 +616,7 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       </div>
 
       {/* Food Add Modal */}
-      <Modal isOpen={isFoodModalOpen} onClose={() => { setIsFoodModalOpen(false); setFoodModalTab('library'); }} title="افزودن ماده غذایی">
+      <Modal isOpen={isFoodModalOpen} onClose={() => { setIsFoodModalOpen(false); setFoodModalTab('library'); setFoodFormErrors({}); }} title="افزودن ماده غذایی">
           <div className="space-y-4">
             {/* Tab Navigation */}
             <div className="flex gap-2 border-b border-gray-200 dark:border-dark-700">
@@ -466,8 +662,17 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                 </div>
 
                 {libraryLoading && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                  <div className="space-y-3 py-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="p-3 bg-gray-100 dark:bg-dark-900 rounded-xl animate-pulse">
+                        <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-1/3 mb-2"></div>
+                        <div className="flex gap-3">
+                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -514,41 +719,116 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
                   <Label>نام غذا</Label>
                   <Input 
                     value={foodForm.name} 
-                    onChange={e => setFoodForm({...foodForm, name: e.target.value})} 
+                    onChange={e => {
+                      setFoodForm({...foodForm, name: e.target.value});
+                      if (foodFormErrors.name) setFoodFormErrors(prev => ({...prev, name: ''}));
+                    }} 
                     placeholder="مثال: سینه مرغ آبپز" 
                     autoFocus 
+                    className={foodFormErrors.name ? 'border-red-500' : ''}
                   />
+                  {foodFormErrors.name && <p className="text-red-500 text-xs mt-1">{foodFormErrors.name}</p>}
                 </div>
                 <div>
                   <Label>مقدار / واحد</Label>
                   <Input 
                     value={foodForm.amount} 
-                    onChange={e => setFoodForm({...foodForm, amount: e.target.value})} 
+                    onChange={e => {
+                      setFoodForm({...foodForm, amount: e.target.value});
+                      if (foodFormErrors.amount) setFoodFormErrors(prev => ({...prev, amount: ''}));
+                    }} 
                     placeholder="مثال: 100 گرم / 1 لیوان" 
+                    className={foodFormErrors.amount ? 'border-red-500' : ''}
                   />
+                  {foodFormErrors.amount && <p className="text-red-500 text-xs mt-1">{foodFormErrors.amount}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                       <Label>کالری</Label>
-                      <Input type="number" value={foodForm.calories} onChange={e => setFoodForm({...foodForm, calories: Number(e.target.value)})} className="text-center" />
+                      <Input type="number" value={foodForm.calories} onChange={e => {
+                        setFoodForm({...foodForm, calories: Number(e.target.value)});
+                        if (foodFormErrors.calories) setFoodFormErrors(prev => ({...prev, calories: ''}));
+                      }} className={`text-center ${foodFormErrors.calories ? 'border-red-500' : ''}`} />
+                      {foodFormErrors.calories && <p className="text-red-500 text-xs mt-1">{foodFormErrors.calories}</p>}
                   </div>
                   <div>
                       <Label>پروتئین (g)</Label>
-                      <Input type="number" value={foodForm.protein} onChange={e => setFoodForm({...foodForm, protein: Number(e.target.value)})} className="text-center" />
+                      <Input type="number" value={foodForm.protein} onChange={e => {
+                        setFoodForm({...foodForm, protein: Number(e.target.value)});
+                        if (foodFormErrors.protein) setFoodFormErrors(prev => ({...prev, protein: ''}));
+                      }} className={`text-center ${foodFormErrors.protein ? 'border-red-500' : ''}`} />
+                      {foodFormErrors.protein && <p className="text-red-500 text-xs mt-1">{foodFormErrors.protein}</p>}
                   </div>
                   <div>
                       <Label>کربوهیدرات (g)</Label>
-                      <Input type="number" value={foodForm.carbs} onChange={e => setFoodForm({...foodForm, carbs: Number(e.target.value)})} className="text-center" />
+                      <Input type="number" value={foodForm.carbs} onChange={e => {
+                        setFoodForm({...foodForm, carbs: Number(e.target.value)});
+                        if (foodFormErrors.carbs) setFoodFormErrors(prev => ({...prev, carbs: ''}));
+                      }} className={`text-center ${foodFormErrors.carbs ? 'border-red-500' : ''}`} />
+                      {foodFormErrors.carbs && <p className="text-red-500 text-xs mt-1">{foodFormErrors.carbs}</p>}
                   </div>
                   <div>
                       <Label>چربی (g)</Label>
-                      <Input type="number" value={foodForm.fat} onChange={e => setFoodForm({...foodForm, fat: Number(e.target.value)})} className="text-center" />
+                      <Input type="number" value={foodForm.fat} onChange={e => {
+                        setFoodForm({...foodForm, fat: Number(e.target.value)});
+                        if (foodFormErrors.fat) setFoodFormErrors(prev => ({...prev, fat: ''}));
+                      }} className={`text-center ${foodFormErrors.fat ? 'border-red-500' : ''}`} />
+                      {foodFormErrors.fat && <p className="text-red-500 text-xs mt-1">{foodFormErrors.fat}</p>}
                   </div>
                 </div>
                 <Button onClick={handleSaveFood} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white">افزودن به وعده</Button>
               </div>
             )}
           </div>
+      </Modal>
+
+      {/* Delete Day Confirmation Modal */}
+      <Modal isOpen={!!dayToDelete} onClose={() => setDayToDelete(null)} title="حذف روز غذایی">
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400">
+            <AlertTriangle size={28} />
+            <div>
+              <h4 className="font-bold text-lg">آیا مطمئن هستید؟</h4>
+              <p className="text-sm mt-1 opacity-90">
+                شما در حال حذف <strong>{days.find(d => d.id === dayToDelete)?.dayName}</strong> هستید. تمام وعده‌ها و غذاهای این روز حذف خواهند شد.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setDayToDelete(null)}>انصراف</Button>
+            <Button variant="danger" className="flex-1" onClick={confirmDeleteDay}>بله، حذف شود</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Template Modal */}
+      <Modal isOpen={showTemplateModal} onClose={() => setShowTemplateModal(false)} title="قالب‌های ذخیره شده">
+        <div className="space-y-4">
+          {templates.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Utensils size={40} className="mx-auto mb-3 opacity-30" />
+              <p>هنوز قالبی ذخیره نشده است</p>
+              <p className="text-xs mt-1">از دکمه "ذخیره قالب" برای ساخت قالب جدید استفاده کنید</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((template, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-900 rounded-xl border border-gray-200 dark:border-dark-700">
+                  <div>
+                    <p className="font-bold text-gray-800 dark:text-white">{template.name}</p>
+                    <p className="text-xs text-gray-500">{template.data.length} روز</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => loadTemplate(template)}>بارگذاری</Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteTemplate(idx)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* Exit Dialog */}
