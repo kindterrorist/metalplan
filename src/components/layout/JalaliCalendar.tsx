@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toJalaali, toGregorian } from "jalaali-js";
+import {
+  JALALI_MONTHS,
+  JALALI_DAY_NAMES_SHORT,
+  getJalaliMonthLength,
+} from "../../utils/jalali";
 
 interface JalaliCalendarProps {
   className?: string;
@@ -8,23 +13,6 @@ interface JalaliCalendarProps {
 
 const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
   const [currentMonth, setCurrentMonth] = useState(0);
-
-  const jalaliMonths = [
-    "فروردین",
-    "اردیبهشت",
-    "خرداد",
-    "تیر",
-    "مرداد",
-    "شهریور",
-    "مهر",
-    "آبان",
-    "آذر",
-    "دی",
-    "بهمن",
-    "اسفند",
-  ];
-
-  const jalaliDayNames = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 
   // Get today's Jalali date
   const today = useMemo(() => {
@@ -44,27 +32,21 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
     return date.getDay();
   };
 
-  // Get days in Jalali month
-  const getDaysInMonth = (jy: number, jm: number): number => {
-    if (jm <= 6) return 31;
-    if (jm < 12) return 30;
-    // Esfand: check if it's a leap year
-    const gregorian = toGregorian(jy, jm, 1);
-    const date = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd + 29);
-    const nextDay = toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
-    return nextDay.jd > 29 ? 30 : 29;
-  };
-
   const displayYear = today.jy + Math.floor(currentMonth / 12);
   const displayMonth = ((today.jm - 1 + (currentMonth % 12)) % 12) + 1;
 
   const firstDay = getFirstDayOfMonth(displayYear, displayMonth);
-  const daysInMonth = getDaysInMonth(displayYear, displayMonth);
+  const daysInMonth = getJalaliMonthLength(displayYear, displayMonth);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const blanks = Array.from({ length: firstDay }, (_, i) => i);
 
   const handlePrevMonth = () => setCurrentMonth(currentMonth - 1);
   const handleNextMonth = () => setCurrentMonth(currentMonth + 1);
+
+  // FEATURE-6: Calculate which week each day belongs to (for alternating backgrounds)
+  const getWeekIndex = (dayIndex: number): number => {
+    return Math.floor((firstDay + dayIndex) / 7);
+  };
 
   return (
     <div
@@ -83,7 +65,7 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
         </button>
         <div className="text-center">
           <p className="text-sm text-blue-100 font-medium">
-            {jalaliMonths[displayMonth - 1]} {displayYear}
+            {JALALI_MONTHS[displayMonth - 1]} {displayYear}
           </p>
         </div>
         <button
@@ -97,36 +79,46 @@ const JalaliCalendar: React.FC<JalaliCalendarProps> = ({ className = "" }) => {
 
       {/* Day names */}
       <div className="grid grid-cols-7 gap-1 mb-2 text-xs font-bold text-blue-100">
-        {jalaliDayNames.map((day) => (
+        {JALALI_DAY_NAMES_SHORT.map((day) => (
           <div key={day} className="text-center">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
+      {/* Calendar grid with week boundaries */}
       <div className="grid grid-cols-7 gap-1 relative z-10">
         {blanks.map((_, i) => (
           <div key={`blank-${i}`} />
         ))}
-        {days.map((day) => (
-          <div
-            key={day}
-            className={`
-              aspect-square flex items-center justify-center rounded-lg text-sm font-semibold
-              transition-all duration-200
-              ${
-                day === today.jd &&
-                displayMonth === today.jm &&
-                displayYear === today.jy
-                  ? "bg-white text-blue-600 shadow-lg scale-105"
-                  : "text-blue-50 hover:bg-white/20"
-              }
-            `}
-          >
-            {day}
-          </div>
-        ))}
+        {days.map((day, idx) => {
+          const weekIdx = getWeekIndex(idx);
+          const isCurrentWeek = (() => {
+            if (displayYear !== today.jy || displayMonth !== today.jm) return false;
+            const todayWeekIdx = getWeekIndex(today.jd - 1);
+            return weekIdx === todayWeekIdx;
+          })();
+          return (
+            <div
+              key={day}
+              className={`
+                aspect-square flex items-center justify-center rounded-lg text-sm font-semibold
+                transition-all duration-200
+                ${
+                  day === today.jd &&
+                  displayMonth === today.jm &&
+                  displayYear === today.jy
+                    ? "bg-white text-blue-600 shadow-lg scale-105"
+                    : isCurrentWeek
+                    ? "bg-white/10 text-blue-50"
+                    : "text-blue-50 hover:bg-white/20"
+                }
+              `}
+            >
+              {day}
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer with today's info */}

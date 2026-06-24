@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FoodLibraryItem } from "../types";
 import {
   getFoodLibraryItems,
@@ -29,6 +29,7 @@ import {
   Activity,
   Wheat,
 } from "lucide-react";
+import { generateId } from "../utils/helpers";
 
 const FoodLibraryViewComponent: React.FC = () => {
   const [items, setItems] = useState<FoodLibraryItem[]>([]);
@@ -41,8 +42,9 @@ const FoodLibraryViewComponent: React.FC = () => {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Food form state
+  // Food form state - includes servingSize, brand, tags
   const [foodForm, setFoodForm] = useState<
     Omit<FoodLibraryItem, "id" | "createdAt" | "updatedAt">
   >({
@@ -53,41 +55,68 @@ const FoodLibraryViewComponent: React.FC = () => {
     protein: 0,
     carbs: 0,
     fat: 0,
+    servingSize: "",
+    brand: "",
+    tags: [],
     notes: "",
   });
 
-  // Food categories
+  // Food categories with icons
   const foodCategories = [
-    "پروتئین",
-    "کربوهیدرات",
-    "چربی",
-    "میوه",
-    "سبزیجات",
-    "غلات",
-    "لبنیات",
-    "آجیل",
-    "نوشیدنی",
-    "سایر",
+    { name: "پروتئین", icon: "🥩" },
+    { name: "کربوهیدرات", icon: "🌾" },
+    { name: "چربی", icon: "🫒" },
+    { name: "میوه", icon: "🍎" },
+    { name: "سبزیجات", icon: "🥦" },
+    { name: "غلات", icon: "🍞" },
+    { name: "لبنیات", icon: "🥛" },
+    { name: "آجیل", icon: "🥜" },
+    { name: "نوشیدنی", icon: "🥤" },
+    { name: "سایر", icon: "📦" },
   ];
+
+  // BUG-F2 FIX: Unified filter logic that applies both search and category together
+  const applyFilters = useCallback(async (search: string, categories: string[]) => {
+    try {
+      let results: FoodLibraryItem[];
+
+      if (search.trim() === "") {
+        results = items;
+      } else {
+        results = await searchFoodLibrary(search);
+      }
+
+      // Apply category filter on top of search results
+      if (categories.length > 0) {
+        results = results.filter(
+          (item) => item.category && categories.includes(item.category)
+        );
+      }
+
+      setFilteredItems(results);
+    } catch (err) {
+      console.error("Error filtering food items:", err);
+      setError("خطا در فیلتر کردن موارد غذایی");
+    }
+  }, [items]);
 
   // Load food library items
   useEffect(() => {
     loadFoodItems();
   }, []);
 
-  // Filter items based on selected categories
+  // BUG-F2 FIX: Re-apply filters whenever search or categories change
   useEffect(() => {
-    let filtered = items;
+    applyFilters(searchQuery, selectedCategories);
+  }, [searchQuery, selectedCategories, items, applyFilters]);
 
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filtered = filtered.filter(
-        (item) => item.category && selectedCategories.includes(item.category)
-      );
+  // PROBLEM-F5 FIX: Auto-dismiss error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
     }
-
-    setFilteredItems(filtered);
-  }, [selectedCategories, items]);
+  }, [error]);
 
   const loadFoodItems = async () => {
     try {
@@ -105,6 +134,7 @@ const FoodLibraryViewComponent: React.FC = () => {
   };
 
   const handleOpenModal = (item?: FoodLibraryItem) => {
+    setFormErrors({});
     if (item) {
       setEditingItem(item);
       setFoodForm({
@@ -115,6 +145,9 @@ const FoodLibraryViewComponent: React.FC = () => {
         protein: item.protein,
         carbs: item.carbs,
         fat: item.fat,
+        servingSize: item.servingSize || "",
+        brand: item.brand || "",
+        tags: item.tags || [],
         notes: item.notes || "",
       });
     } else {
@@ -127,16 +160,34 @@ const FoodLibraryViewComponent: React.FC = () => {
         protein: 0,
         carbs: 0,
         fat: 0,
+        servingSize: "",
+        brand: "",
+        tags: [],
         notes: "",
       });
     }
     setIsModalOpen(true);
   };
 
+  // BUG-F3 FIX: Add validation before save
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!foodForm.name.trim()) errors.name = "نام غذا الزامی است";
+    if (!foodForm.amount.trim()) errors.amount = "مقدار / واحد الزامی است";
+    if (foodForm.calories < 0) errors.calories = "کالری نمی‌تواند منفی باشد";
+    if (foodForm.protein < 0) errors.protein = "پروتئین نمی‌تواند منفی باشد";
+    if (foodForm.carbs < 0) errors.carbs = "کربوهیدرات نمی‌تواند منفی باشد";
+    if (foodForm.fat < 0) errors.fat = "چربی نمی‌تواند منفی باشد";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSaveFood = async () => {
+    if (!validateForm()) return;
+
     try {
       const foodItem: FoodLibraryItem = {
-        id: editingItem?.id || crypto.randomUUID(),
+        id: editingItem?.id || generateId(),
         ...foodForm,
         createdAt: editingItem?.createdAt || Date.now(),
         updatedAt: Date.now(),
@@ -164,20 +215,8 @@ const FoodLibraryViewComponent: React.FC = () => {
     }
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim() === "") {
-      // If search is cleared, show all items
-      setFilteredItems(items);
-    } else {
-      try {
-        const results = await searchFoodLibrary(query);
-        setFilteredItems(results);
-      } catch (err) {
-        console.error("Error searching food items:", err);
-        setError("خطا در جستجوی موارد غذایی");
-      }
-    }
   };
 
   const calculateTotalMacros = () => {
@@ -249,30 +288,31 @@ const FoodLibraryViewComponent: React.FC = () => {
           </div>
         </div>
 
-        {/* Category Filters */}
+        {/* Category Filters with icons */}
         <div className="flex flex-wrap gap-2 p-4 bg-white dark:bg-dark-800 rounded-3xl shadow-sm border border-gray-100 dark:border-dark-700">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 self-center">
             دسته‌بندی:
           </span>
           {foodCategories.map((category) => (
             <button
-              key={category}
+              key={category.name}
               onClick={() => {
-                if (selectedCategories.includes(category)) {
+                if (selectedCategories.includes(category.name)) {
                   setSelectedCategories(
-                    selectedCategories.filter((cat) => cat !== category)
+                    selectedCategories.filter((cat) => cat !== category.name)
                   );
                 } else {
-                  setSelectedCategories([...selectedCategories, category]);
+                  setSelectedCategories([...selectedCategories, category.name]);
                 }
               }}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                selectedCategories.includes(category)
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
+                selectedCategories.includes(category.name)
                   ? "bg-emerald-600 text-white"
                   : "bg-gray-200 dark:bg-dark-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-dark-600"
               }`}
             >
-              {category}
+              <span>{category.icon}</span>
+              {category.name}
             </button>
           ))}
           {selectedCategories.length > 0 && (
@@ -285,6 +325,43 @@ const FoodLibraryViewComponent: React.FC = () => {
           )}
         </div>
 
+        {/* Nutritional Summary Bar - FEATURE-F1 */}
+        {filteredItems.length > 0 && (
+          <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-4 rounded-3xl border border-emerald-200/50 dark:border-emerald-800/30">
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">جمع کل (نمای فعلی):</p>
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <div>
+                <div className="flex items-center justify-center gap-1 text-orange-500">
+                  <Flame size={14} />
+                  <span className="font-black text-lg">{Math.round(totalMacros.calories)}</span>
+                </div>
+                <span className="text-[10px] text-gray-500">کالری</span>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-blue-500">
+                  <Activity size={14} />
+                  <span className="font-black text-lg">{Math.round(totalMacros.protein)}</span>
+                </div>
+                <span className="text-[10px] text-gray-500">پروتئین</span>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-amber-500">
+                  <Wheat size={14} />
+                  <span className="font-black text-lg">{Math.round(totalMacros.carbs)}</span>
+                </div>
+                <span className="text-[10px] text-gray-500">کربو</span>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-purple-500">
+                  <Droplet size={14} />
+                  <span className="font-black text-lg">{Math.round(totalMacros.fat)}</span>
+                </div>
+                <span className="text-[10px] text-gray-500">چربی</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Food Items List */}
         <div className="space-y-4">
           {filteredItems.length === 0 ? (
@@ -294,14 +371,30 @@ const FoodLibraryViewComponent: React.FC = () => {
                 className="mx-auto text-gray-300 dark:text-gray-600 mb-4"
               />
               <h3 className="text-lg font-bold text-gray-500 dark:text-gray-400">
-                هیچ موردی یافت نشد
+                {searchQuery || selectedCategories.length > 0
+                  ? "هیچ موردی یافت نشد"
+                  : "غذایی در کتابخانه وجود ندارد"}
               </h3>
               <p className="text-gray-400 dark:text-gray-500 mt-2">
                 {searchQuery
                   ? "جستجوی شما نتیجه‌ای نداشت"
-                  : "غذایی در کتابخانه وجود ندارد"}
+                  : selectedCategories.length > 0
+                  ? "موردی در این دسته‌بندی وجود ندارد"
+                  : "اولین غذای خود را اضافه کنید"}
               </p>
-              {!searchQuery && (
+              {(searchQuery || selectedCategories.length > 0) && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategories([]);
+                  }}
+                  className="mt-3"
+                >
+                  پاک کردن فیلترها
+                </Button>
+              )}
+              {!searchQuery && selectedCategories.length === 0 && (
                 <Button
                   onClick={() => handleOpenModal()}
                   className="mt-4 bg-emerald-600 hover:bg-emerald-700"
@@ -324,7 +417,12 @@ const FoodLibraryViewComponent: React.FC = () => {
                       </h3>
                       {item.category && (
                         <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
-                          {item.category}
+                          {foodCategories.find(c => c.name === item.category)?.icon} {item.category}
+                        </span>
+                      )}
+                      {item.brand && (
+                        <span className="bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
+                          {item.brand}
                         </span>
                       )}
                     </div>
@@ -333,6 +431,16 @@ const FoodLibraryViewComponent: React.FC = () => {
                       <span className="bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
                         <Package size={12} /> {item.amount}
                       </span>
+                      {item.servingSize && (
+                        <span className="bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <Package size={12} /> {item.servingSize}
+                        </span>
+                      )}
+                      {item.tags && item.tags.length > 0 && item.tags.map((tag, idx) => (
+                        <span key={idx} className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <Tag size={10} /> {tag}
+                        </span>
+                      ))}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -397,7 +505,7 @@ const FoodLibraryViewComponent: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <Label>نام غذا</Label>
+            <Label>نام غذا *</Label>
             <Input
               value={foodForm.name}
               onChange={(e) =>
@@ -405,8 +513,11 @@ const FoodLibraryViewComponent: React.FC = () => {
               }
               placeholder="مثال: سینه مرغ آبپز"
               autoFocus
-              required
+              className={formErrors.name ? "border-red-500" : ""}
             />
+            {formErrors.name && (
+              <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -420,21 +531,49 @@ const FoodLibraryViewComponent: React.FC = () => {
               >
                 <option value="">انتخاب دسته</option>
                 {foodCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                  <option key={cat.name} value={cat.name}>
+                    {cat.icon} {cat.name}
                   </option>
                 ))}
               </Select>
             </div>
 
             <div>
-              <Label>مقدار / واحد</Label>
+              <Label>مقدار / واحد *</Label>
               <Input
                 value={foodForm.amount}
                 onChange={(e) =>
                   setFoodForm({ ...foodForm, amount: e.target.value })
                 }
                 placeholder="مثال: 100 گرم / 1 عدد"
+                className={formErrors.amount ? "border-red-500" : ""}
+              />
+              {formErrors.amount && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.amount}</p>
+              )}
+            </div>
+          </div>
+
+          {/* PROBLEM-F1 FIX: Add serving size and brand fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>اندازه سرو (اختیاری)</Label>
+              <Input
+                value={foodForm.servingSize || ""}
+                onChange={(e) =>
+                  setFoodForm({ ...foodForm, servingSize: e.target.value })
+                }
+                placeholder="مثال: 1 پیمانه"
+              />
+            </div>
+            <div>
+              <Label>برند (اختیاری)</Label>
+              <Input
+                value={foodForm.brand || ""}
+                onChange={(e) =>
+                  setFoodForm({ ...foodForm, brand: e.target.value })
+                }
+                placeholder="مثال: کاله"
               />
             </div>
           </div>
@@ -448,9 +587,12 @@ const FoodLibraryViewComponent: React.FC = () => {
                 onChange={(e) =>
                   setFoodForm({ ...foodForm, calories: Number(e.target.value) })
                 }
-                className="text-center"
+                className={`text-center ${formErrors.calories ? "border-red-500" : ""}`}
                 min="0"
               />
+              {formErrors.calories && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.calories}</p>
+              )}
             </div>
             <div>
               <Label>پروتئین (g)</Label>
@@ -460,9 +602,12 @@ const FoodLibraryViewComponent: React.FC = () => {
                 onChange={(e) =>
                   setFoodForm({ ...foodForm, protein: Number(e.target.value) })
                 }
-                className="text-center"
+                className={`text-center ${formErrors.protein ? "border-red-500" : ""}`}
                 min="0"
               />
+              {formErrors.protein && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.protein}</p>
+              )}
             </div>
             <div>
               <Label>کربوهیدرات (g)</Label>
@@ -472,9 +617,12 @@ const FoodLibraryViewComponent: React.FC = () => {
                 onChange={(e) =>
                   setFoodForm({ ...foodForm, carbs: Number(e.target.value) })
                 }
-                className="text-center"
+                className={`text-center ${formErrors.carbs ? "border-red-500" : ""}`}
                 min="0"
               />
+              {formErrors.carbs && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.carbs}</p>
+              )}
             </div>
             <div>
               <Label>چربی (g)</Label>
@@ -484,10 +632,20 @@ const FoodLibraryViewComponent: React.FC = () => {
                 onChange={(e) =>
                   setFoodForm({ ...foodForm, fat: Number(e.target.value) })
                 }
-                className="text-center"
+                className={`text-center ${formErrors.fat ? "border-red-500" : ""}`}
                 min="0"
               />
+              {formErrors.fat && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.fat}</p>
+              )}
             </div>
+          </div>
+
+          {/* FEATURE-F6: Auto-calculate calories from macros */}
+          <div className="bg-gray-50 dark:bg-dark-900 p-3 rounded-xl text-center">
+            <span className="text-xs text-gray-500">
+              کالری محاسبه شده: {Math.round((foodForm.protein * 4) + (foodForm.carbs * 4) + (foodForm.fat * 9))} kcal
+            </span>
           </div>
 
           <div>
@@ -525,9 +683,16 @@ const FoodLibraryViewComponent: React.FC = () => {
         variant="danger"
       />
 
+      {/* PROBLEM-F5 FIX: Error with close button and auto-dismiss */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-xl shadow-lg z-50">
-          {error}
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in slide-in-from-bottom-2">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="p-1 hover:bg-red-600 rounded-lg transition-colors"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>

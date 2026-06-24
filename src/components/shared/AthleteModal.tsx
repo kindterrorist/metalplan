@@ -3,6 +3,8 @@ import { z } from "zod";
 import { athleteSchema } from "../../utils/validationSchemas";
 import { Athlete } from "../../../types";
 import { Modal, Input, Label, Select, Button } from "../../../components/UI";
+import JalaliDatePicker from "./JalaliDatePicker";
+import { generateId } from "../../../utils/helpers";
 
 interface AthleteModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
         ]?.weight?.toString() || "",
       goal: editingAthlete?.currentGoal || "",
       status: editingAthlete?.status || "active",
+      joinDate: editingAthlete?.joinDate || new Date().toISOString().split("T")[0],
     });
 
     // State for validation errors
@@ -37,14 +40,13 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
       const validationResult = athleteSchema.safeParse({
         id:
           editingAthlete?.id ||
-          crypto.randomUUID?.() ||
-          `athlete-${Date.now()}`,
+          generateId(),
         fullName: formData.fullName,
         phone: formData.phone || undefined,
         age: parseInt(formData.age),
         height: parseInt(formData.height),
         gender: formData.gender as "Male" | "Female",
-        joinDate: editingAthlete?.joinDate || new Date().toISOString(),
+        joinDate: editingAthlete?.joinDate || formData.joinDate || new Date().toISOString(),
         measurements: editingAthlete?.measurements || [],
         currentGoal: formData.goal || undefined,
         status: (formData.status as "active" | "archived") || "active",
@@ -88,9 +90,7 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
       const athleteData: Athlete = {
         id: editingAthlete
           ? editingAthlete.id
-          : crypto.randomUUID
-          ? crypto.randomUUID()
-          : `athlete-${Date.now()}`,
+          : generateId(),
         fullName: formData.fullName,
         phone: formData.phone || undefined,
         age: parseInt(formData.age),
@@ -98,7 +98,7 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
         gender: formData.gender as "Male" | "Female",
         joinDate: editingAthlete
           ? editingAthlete.joinDate
-          : new Date().toISOString(),
+          : formData.joinDate || new Date().toISOString(),
         measurements: measurements,
         currentGoal: formData.goal || undefined,
         status: (formData.status as "active" | "archived") || "active",
@@ -243,6 +243,19 @@ const AthleteModal: React.FC<AthleteModalProps> = React.memo(
               </Select>
             </div>
           </div>
+          {!editingAthlete && (
+            <div>
+              <Label>تاریخ عضویت</Label>
+              <JalaliDatePicker
+                value={formData.joinDate}
+                onChange={(val) => setFormData({ ...formData, joinDate: val })}
+                placeholder="انتخاب تاریخ عضویت"
+              />
+              {errors.joinDate && (
+                <p className="text-red-500 text-sm mt-1">{errors.joinDate}</p>
+              )}
+            </div>
+          )}
           <Button type="submit" className="w-full mt-4 h-12 text-base">
             {editingAthlete ? "ذخیره تغییرات" : "ثبت ورزشکار"}
           </Button>

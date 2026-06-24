@@ -36,7 +36,7 @@ export const athleteSchema = z.object({
   gender: z.enum(["Male", "Female"], {
     error: "جنسیت باید مرد یا زن باشد",
   }),
-  joinDate: z.string().datetime("تاریخ عضویت نامعتبر است"),
+  joinDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "تاریخ عضویت نامعتبر است"),
   measurements: z
     .array(
       z.object({

@@ -687,10 +687,10 @@ function deleteFoodLibraryItem(id) {
 function searchFoodLibrary(query) {
   const stmt = db.prepare(`
     SELECT * FROM food_library
-    WHERE name LIKE ? OR category LIKE ? OR tags LIKE ?
+    WHERE name LIKE ? OR category LIKE ? OR tags LIKE ? OR brand LIKE ? OR notes LIKE ?
     ORDER BY name ASC
   `);
-  const items = stmt.all(`%${query}%`, `%${query}%`, `%${query}%`);
+  const items = stmt.all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
   // Map snake_case fields to camelCase
   return items.map((item) => ({
     id: item.id,

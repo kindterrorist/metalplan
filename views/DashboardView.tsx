@@ -1,8 +1,9 @@
 import React from 'react';
 import { Athlete, WorkoutPlan, TrainerProfile, View, Exercise } from '../types';
 import { Card, Skeleton } from '../components/UI';
-import { Users, FileText, Dumbbell, Calendar, UserPlus, Calculator, Utensils, Activity, User, Check, ChevronLeft, Sun, Sunrise, SunDim, MoonStar, Search, Trophy, Settings, AlertCircle } from 'lucide-react';
+import { Users, FileText, Dumbbell, Calendar, UserPlus, Calculator, Utensils, Activity, User, Check, ChevronLeft, Sun, Sunrise, SunDim, MoonStar, Search, Trophy, Settings, AlertCircle, History } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { isSameJalaliMonth, formatRelativeTime, formatJalaliFull, toJalaliDate } from '../src/utils/jalali';
 
 const COLOR_MAP: Record<string, { text600: string; text400: string; bg50: string; bg900: string }> = {
   blue: { text600: 'text-blue-600', text400: 'text-blue-400', bg50: 'bg-blue-50', bg900: 'bg-blue-900/30' },
@@ -55,10 +56,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const filteredAthletes = athletes.filter(a => a.fullName.toLowerCase().includes(searchQuery.toLowerCase()));
 
     // --- Stats Logic ---
+    // BUG-2 FIX: Use Jalali months for monthly joiners count
+    const now = new Date();
     const monthlyJoiners = athletes.filter(a => {
-        const d = new Date(a.joinDate);
-        const now = new Date();
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return isSameJalaliMonth(a.joinDate, now);
     }).length;
 
     const recentActivities = [
@@ -226,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-1">اهداف ورزشکاران</h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">توزیع آماری بر اساس هدف تمرینی</p>
                             </div>
-                            <div className="h-[240px] w-full relative z-10 my-4">
+                            <div className="h-[240px] w-full relative z-10 my-4" style={{ minWidth: 200, minHeight: 200 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie data={goalChartData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value" cornerRadius={8} stroke="none">
@@ -275,7 +276,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate">{item.meta}</div>
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-medium whitespace-nowrap bg-gray-100 dark:bg-dark-800 px-2 py-1 rounded-lg group-hover:bg-white dark:group-hover:bg-dark-900 transition-colors">
-                                            {new Date(item.date).toLocaleDateString('fa-IR')}
+                                            {formatRelativeTime(new Date(item.date))}
                                         </div>
                                     </div>
                                 ))}

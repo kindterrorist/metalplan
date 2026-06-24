@@ -23,6 +23,9 @@ import {
   StickyNote,
   Search,
   Loader2,
+  Check,
+  Filter,
+  RotateCcw,
 } from "lucide-react";
 import {
   DndContext,
@@ -76,6 +79,10 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [currentDayId, setCurrentDayId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterMuscle, setFilterMuscle] = useState("All");
+  const [filterEquipment, setFilterEquipment] = useState("All");
+  const [selectedForSuperset, setSelectedForSuperset] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // State for validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -350,11 +357,112 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
     setErrors({}); // Clear errors after successful submission
   };
 
+  const EQUIPMENT_TYPES = [
+    { value: 'All', label: 'همه' },
+    { value: 'Machine', label: 'دستگاه' },
+    { value: 'Dumbbell', label: 'دمبل' },
+    { value: 'Barbell', label: 'هالتر' },
+    { value: 'Cable', label: 'سیم\u200Cکش' },
+    { value: 'Bodyweight', label: 'وزن بدن' },
+  ];
+
+  const MUSCLE_GROUP_ICONS: Record<string, string> = {
+    'سینه': '🫁',
+    'زیربغل و پشت': '🔙',
+    'سرشانه': '💪',
+    'جلوبازو': '💪',
+    'پشت\u200Cبازو': '💪',
+    'پـا': '🦵',
+    'شکم و پهلو': '🏋️',
+    'هوازی': '🏃',
+  };
+
+  const EQUIPMENT_COLORS: Record<string, string> = {
+    'Machine': 'bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400',
+    'Dumbbell': 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+    'Barbell': 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+    'Cable': 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+    'Bodyweight': 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  };
+
+  const EQUIPMENT_LABELS: Record<string, string> = {
+    'Machine': 'دستگاه',
+    'Dumbbell': 'دمبل',
+    'Barbell': 'هالتر',
+    'Cable': 'سیم\u200Cکش',
+    'Bodyweight': 'وزن بدن',
+  };
+
   const filteredExercises = exercises.filter(
     (e) =>
-      e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.muscleGroup.includes(searchTerm)
+      (e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.muscleGroup.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (filterMuscle === 'All' || e.muscleGroup === filterMuscle) &&
+      (filterEquipment === 'All' || e.type === filterEquipment)
   );
+
+  const currentDayExercises = currentDayId
+    ? days.find(d => d.id === currentDayId)?.exercises || []
+    : [];
+  const currentDayExerciseIds = new Set(currentDayExercises.map(e => e.exerciseId));
+
+  const groupedExercises = filteredExercises.reduce((acc, ex) => {
+    if (!acc[ex.muscleGroup]) acc[ex.muscleGroup] = [];
+    acc[ex.muscleGroup].push(ex);
+    return acc;
+  }, {} as Record<string, Exercise[]>);
+
+  const uniqueMuscleGroups = Array.from(new Set(exercises.map(e => e.muscleGroup))) as string[];
+
+  const toggleGroupCollapse = (group: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  };
+
+  const toggleSupersetSelection = (exerciseId: string) => {
+    setSelectedForSuperset(prev => {
+      const next = new Set(prev);
+      if (next.has(exerciseId)) next.delete(exerciseId);
+      else next.add(exerciseId);
+      return next;
+    });
+  };
+
+  const addSelectedAsSuperset = () => {
+    if (!currentDayId || selectedForSuperset.size < 2) return;
+    const groupId = crypto.randomUUID();
+    const selectedExercisesList = exercises.filter(e => selectedForSuperset.has(e.id));
+
+    setDays(prev => prev.map(d => {
+      if (d.id !== currentDayId) return d;
+      const newSets: ExerciseSet[] = selectedExercisesList.map(ex => ({
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        sets: '3',
+        reps: '12',
+        rest: '60s',
+        supersetGroupId: groupId,
+      }));
+      return { ...d, exercises: [...d.exercises, ...newSets] };
+    }));
+
+    setSelectedForSuperset(new Set());
+    setHasUnsavedChanges(true);
+    setIsExerciseModalOpen(false);
+    setSearchTerm('');
+    setFilterMuscle('All');
+    setFilterEquipment('All');
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterMuscle('All');
+    setFilterEquipment('All');
+  };
 
   const totalExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
   const activeDays = days.filter(d => !d.isRestDay && d.exercises.length > 0).length;
@@ -747,6 +855,10 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
                         className="w-full border-dashed border-2 border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-100 hover:border-blue-300 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/40 transition-all h-12"
                         onClick={() => {
                           setCurrentDayId(day.id);
+                          setSelectedForSuperset(new Set());
+                          setFilterMuscle('All');
+                          setFilterEquipment('All');
+                          setSearchTerm('');
                           setIsExerciseModalOpen(true);
                         }}
                       >
@@ -774,36 +886,92 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div
             className="absolute inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsExerciseModalOpen(false)}
+            onClick={() => { setIsExerciseModalOpen(false); setSelectedForSuperset(new Set()); setSearchTerm(''); setFilterMuscle('All'); setFilterEquipment('All'); }}
           />
           <div className="relative bg-white dark:bg-dark-800 w-full sm:max-w-lg h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300 border border-gray-100 dark:border-dark-700">
-            <div className="p-5 border-b border-gray-100 dark:border-dark-700 flex justify-between items-center bg-white dark:bg-dark-800 rounded-t-3xl z-10">
-              <h3 className="text-xl font-black text-gray-800 dark:text-white">
-                انتخاب حرکت
-              </h3>
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 dark:border-dark-700 flex justify-between items-center bg-white dark:bg-dark-800 rounded-t-3xl z-20">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-black text-gray-800 dark:text-white">
+                  انتخاب حرکت
+                </h3>
+                {filteredExercises.length > 0 && (
+                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
+                    {filteredExercises.length} حرکت
+                  </span>
+                )}
+              </div>
               <button
-                onClick={() => setIsExerciseModalOpen(false)}
+                onClick={() => { setIsExerciseModalOpen(false); setSelectedForSuperset(new Set()); setSearchTerm(''); setFilterMuscle('All'); setFilterEquipment('All'); }}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-700"
               >
                 <X className="text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-dark-900 border-b border-gray-100 dark:border-dark-700">
-              <div className="relative">
-                <Input
-                  placeholder="جستجو در حرکات..."
-                  autoFocus
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white dark:bg-dark-800"
-                />
-                <div className="absolute left-3 top-3 text-gray-400">
-                  <Search size={18} />
+            {/* Search + Filters (Sticky) */}
+            <div className="sticky top-0 z-10 bg-white dark:bg-dark-800 border-b border-gray-100 dark:border-dark-700">
+              <div className="p-4">
+                <div className="relative">
+                  <Input
+                    placeholder="جستجو در حرکات..."
+                    autoFocus
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-gray-50 dark:bg-dark-900"
+                  />
+                  <div className="absolute left-3 top-3 text-gray-400">
+                    <Search size={18} />
+                  </div>
                 </div>
+              </div>
+
+              {/* Muscle Group Chips */}
+              <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
+                <button
+                  onClick={() => setFilterMuscle('All')}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    filterMuscle === 'All'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-600 hover:bg-gray-200 dark:hover:bg-dark-600'
+                  }`}
+                >
+                  همه
+                </button>
+                {uniqueMuscleGroups.map(mg => (
+                  <button
+                    key={mg}
+                    onClick={() => setFilterMuscle(filterMuscle === mg ? 'All' : mg)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      filterMuscle === mg
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-600 hover:bg-gray-200 dark:hover:bg-dark-600'
+                    }`}
+                  >
+                    {MUSCLE_GROUP_ICONS[mg] || '💪'} {mg}
+                  </button>
+                ))}
+              </div>
+
+              {/* Equipment Type Chips */}
+              <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+                {EQUIPMENT_TYPES.map(eq => (
+                  <button
+                    key={eq.value}
+                    onClick={() => setFilterEquipment(eq.value)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      filterEquipment === eq.value
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-600 hover:bg-gray-200 dark:hover:bg-dark-600'
+                    }`}
+                  >
+                    {eq.label}
+                  </button>
+                ))}
               </div>
             </div>
 
+            {/* Exercise List */}
             <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
               {isLoadingExercises ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -812,42 +980,155 @@ export const PlanBuilder: React.FC<PlanBuilderProps> = ({
                 </div>
               ) : filteredExercises.length === 0 ? (
                 <div className="text-center p-12 text-gray-400 flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 bg-gray-100 dark:bg-dark-800 rounded-full flex items-center justify-center">
-                    <Dumbbell size={32} className="opacity-20" />
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-dark-700 rounded-full flex items-center justify-center">
+                    <Dumbbell size={40} className="opacity-20" />
                   </div>
-                  <p>حرکتی یافت نشد</p>
+                  <p className="font-bold text-gray-500 dark:text-gray-400">هیچ حرکتی با فیلتر انتخابی یافت نشد</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">فیلترها را تغییر دهید یا جستجو را پاک کنید</p>
+                  <button
+                    onClick={clearFilters}
+                    className="mt-2 flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                  >
+                    <RotateCcw size={14} /> پاک کردن فیلترها
+                  </button>
                 </div>
               ) : (
-                filteredExercises.map((ex) => (
-                  <div
-                    key={ex.id}
-                    className="p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-2xl cursor-pointer flex justify-between items-center transition-colors border-b border-gray-50 dark:border-dark-700 last:border-0 group animate-fade-in"
-                    onClick={() => handleAddExerciseToDay(ex)}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-gray-400 flex items-center justify-center group-hover:bg-blue-200 group-hover:text-blue-700 dark:group-hover:bg-blue-800 dark:group-hover:text-white transition-colors">
-                        <Dumbbell size={20} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-800 dark:text-gray-200">
-                          {ex.name}
-                        </p>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-dark-700 px-2 py-0.5 rounded-md mt-1 inline-block">
-                          {ex.muscleGroup}
+                (Object.entries(groupedExercises) as [string, Exercise[]][]).map(([muscleGroup, groupExercises]) => (
+                  <div key={muscleGroup} className="mb-3">
+                    {/* Group Header */}
+                    <button
+                      onClick={() => toggleGroupCollapse(muscleGroup)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 dark:bg-dark-900 hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors mb-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{MUSCLE_GROUP_ICONS[muscleGroup] || '💪'}</span>
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{muscleGroup}</span>
+                        <span className="text-[10px] bg-gray-200 dark:bg-dark-600 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
+                          {groupExercises.length}
                         </span>
                       </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 dark:hover:bg-blue-600 dark:hover:border-blue-600 rounded-xl"
-                    >
-                      <Plus size={18} />
-                    </Button>
+                      <ChevronDown
+                        size={16}
+                        className={`text-gray-400 transition-transform ${collapsedGroups.has(muscleGroup) ? '-rotate-90' : ''}`}
+                      />
+                    </button>
+
+                    {/* Group Items */}
+                    {!collapsedGroups.has(muscleGroup) && (
+                      <div className="space-y-1">
+                        {groupExercises.map((ex) => {
+                          const isAlreadyAdded = currentDayExerciseIds.has(ex.id);
+                          const isSelectedForSuperset = selectedForSuperset.has(ex.id);
+                          return (
+                            <div
+                              key={ex.id}
+                              className={`p-3 rounded-2xl flex justify-between items-center transition-all border group animate-fade-in ${
+                                isSelectedForSuperset
+                                  ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700'
+                                  : isAlreadyAdded
+                                  ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30'
+                                  : 'bg-white dark:bg-dark-800 border-gray-100 dark:border-dark-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {/* Superset Checkbox */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleSupersetSelection(ex.id); }}
+                                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
+                                    isSelectedForSuperset
+                                      ? 'bg-purple-600 border-purple-600 text-white'
+                                      : 'border-gray-300 dark:border-gray-600 hover:border-purple-400'
+                                  }`}
+                                >
+                                  {isSelectedForSuperset && (
+                                    <Check size={14} />
+                                  )}
+                                </button>
+
+                                {/* Exercise Icon */}
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                  isAlreadyAdded
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-gray-400 group-hover:bg-blue-200 group-hover:text-blue-700 dark:group-hover:bg-blue-800 dark:group-hover:text-white'
+                                }`}>
+                                  {isAlreadyAdded ? <Check size={20} /> : <Dumbbell size={20} />}
+                                </div>
+
+                                {/* Exercise Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className={`font-bold text-sm truncate ${
+                                      isAlreadyAdded ? 'text-green-700 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'
+                                    }`}>
+                                      {ex.name}
+                                    </p>
+                                    {isAlreadyAdded && (
+                                      <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                        اضافه شده
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${EQUIPMENT_COLORS[ex.type] || 'bg-gray-100 text-gray-500'}`}>
+                                      {EQUIPMENT_LABELS[ex.type] || ex.type}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Add Button */}
+                              <button
+                                onClick={() => handleAddExerciseToDay(ex)}
+                                className={`p-2 rounded-xl shrink-0 transition-all ml-2 ${
+                                  isAlreadyAdded
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                    : 'bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 dark:hover:bg-blue-600 dark:hover:border-blue-600 text-gray-500 dark:text-gray-400'
+                                }`}
+                              >
+                                <Plus size={18} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
             </div>
+
+            {/* Superset Action Bar */}
+            {selectedForSuperset.size >= 2 && (
+              <div className="border-t border-gray-100 dark:border-dark-700 p-4 bg-white dark:bg-dark-800 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <span className="text-lg">🔗</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800 dark:text-white">
+                        {selectedForSuperset.size} حرکت انتخاب شده
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">برای ایجاد سوپرست</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedForSuperset(new Set())}
+                      className="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-xl transition-colors"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      onClick={addSelectedAsSuperset}
+                      className="px-4 py-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors shadow-lg shadow-purple-200 dark:shadow-none"
+                    >
+                      ایجاد سوپرست
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { nutritionPlanSchema } from '../src/utils/validationSchemas';
 import { Athlete, NutritionPlan, DietDay, Meal, FoodItem, FoodLibraryItem } from '../types';
 import { Button, Input, Modal, Label, Select } from './UI';
-import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Utensils, AlertTriangle, Coffee, Flame, Droplet, Wheat, Activity, Search, StickyNote } from 'lucide-react';
+import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Utensils, AlertTriangle, Coffee, Flame, Droplet, Wheat, Activity, Search, StickyNote, Clock, Check, RotateCcw } from 'lucide-react';
 import { getFoodLibraryItems } from '../services/electronDb';
 
 interface NutritionBuilderProps {
@@ -43,6 +43,11 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
   const [filteredLibraryFoods, setFilteredLibraryFoods] = useState<FoodLibraryItem[]>([]);
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [foodCategoryFilter, setFoodCategoryFilter] = useState('All');
+  const [recentFoodIds, setRecentFoodIds] = useState<string[]>([]);
+  const [selectedFoodForPortion, setSelectedFoodForPortion] = useState<FoodLibraryItem | null>(null);
+  const [portionAmount, setPortionAmount] = useState('');
+  const [sessionMacros, setSessionMacros] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   
   // Temporary Food Form State
   const [foodForm, setFoodForm] = useState<Partial<FoodItem>>({ name: '', amount: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -62,8 +67,45 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
   useEffect(() => {
     if (isFoodModalOpen && foodModalTab === 'library') {
       loadLibraryFoods();
+      loadRecentFoods();
+      setSessionMacros({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+    }
+    if (!isFoodModalOpen) {
+      setSelectedFoodForPortion(null);
+      setPortionAmount('');
     }
   }, [isFoodModalOpen, foodModalTab]);
+
+  const FOOD_CATEGORIES = [
+    { value: 'All', label: 'هممه', icon: '🍽️' },
+    { value: 'پروتئین', label: 'پروتئین', icon: '🥩' },
+    { value: 'کربوهیدرات', label: 'کربوهیدرات', icon: '🌾' },
+    { value: 'چربی', label: 'چربی', icon: '🫒' },
+    { value: 'میوه', label: 'میوه', icon: '🍎' },
+    { value: 'سبزیجات', label: 'سبزیجات', icon: '🥦' },
+    { value: 'غلات', label: 'غلات', icon: '🍞' },
+    { value: 'لبنیات', label: 'لبنیات', icon: '🥛' },
+    { value: 'آجیل', label: 'آجیل', icon: '🥜' },
+    { value: 'نوشیدنی', label: 'نوشیدنی', icon: '🥤' },
+    { value: 'سایر', label: 'سایر', icon: '📦' },
+  ];
+
+  const PORTION_PRESETS = ['100g', '200g', '150g', '1 لیوان', '1 عدد', 'نصف'];
+
+  const loadRecentFoods = () => {
+    try {
+      const saved = localStorage.getItem('recentFoods');
+      if (saved) setRecentFoodIds(JSON.parse(saved));
+    } catch {}
+  };
+
+  const saveRecentFood = (foodId: string) => {
+    setRecentFoodIds(prev => {
+      const updated = [foodId, ...prev.filter(id => id !== foodId)].slice(0, 5);
+      localStorage.setItem('recentFoods', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Load templates
   useEffect(() => {
@@ -99,21 +141,26 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
     localStorage.setItem('nutritionPlanTemplates', JSON.stringify(newTemplates));
   };
 
-  // Filter library foods based on search query
+  // Filter library foods based on search query and category
   useEffect(() => {
-    if (librarySearchQuery.trim() === '') {
-      setFilteredLibraryFoods(libraryFoods);
-    } else {
+    let filtered = libraryFoods;
+
+    if (foodCategoryFilter !== 'All') {
+      filtered = filtered.filter(item => item.category === foodCategoryFilter);
+    }
+
+    if (librarySearchQuery.trim() !== '') {
       const query = librarySearchQuery.toLowerCase();
-      setFilteredLibraryFoods(
-        libraryFoods.filter(
-          (item) =>
-            item.name.toLowerCase().includes(query) ||
-            (item.category && item.category.toLowerCase().includes(query))
-        )
+      filtered = filtered.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          (item.category && item.category.toLowerCase().includes(query)) ||
+          (item.brand && item.brand.toLowerCase().includes(query))
       );
     }
-  }, [librarySearchQuery, libraryFoods]);
+
+    setFilteredLibraryFoods(filtered);
+  }, [librarySearchQuery, libraryFoods, foodCategoryFilter]);
 
   const loadLibraryFoods = async () => {
     try {
@@ -128,17 +175,20 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
     }
   };
 
-  const handleAddFoodFromLibrary = (libraryFood: FoodLibraryItem) => {
+  const handleAddFoodFromLibrary = (libraryFood: FoodLibraryItem, customAmount?: string) => {
     if (!currentDayId || !currentMealId) return;
+
+    const amount = customAmount || libraryFood.amount;
+    const amountMultiplier = customAmount ? parseAmountMultiplier(customAmount, libraryFood.amount) : 1;
 
     const newFood: FoodItem = {
       id: crypto.randomUUID(),
       name: libraryFood.name,
-      amount: libraryFood.amount,
-      calories: libraryFood.calories,
-      protein: libraryFood.protein,
-      carbs: libraryFood.carbs,
-      fat: libraryFood.fat,
+      amount,
+      calories: Math.round(libraryFood.calories * amountMultiplier),
+      protein: Math.round(libraryFood.protein * amountMultiplier * 10) / 10,
+      carbs: Math.round(libraryFood.carbs * amountMultiplier * 10) / 10,
+      fat: Math.round(libraryFood.fat * amountMultiplier * 10) / 10,
     };
 
     setDays(prev => prev.map(d => {
@@ -156,10 +206,30 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       return d;
     }));
 
+    setSessionMacros(prev => ({
+      calories: prev.calories + newFood.calories,
+      protein: prev.protein + newFood.protein,
+      carbs: prev.carbs + newFood.carbs,
+      fat: prev.fat + newFood.fat,
+    }));
+
+    saveRecentFood(libraryFood.id);
     setHasUnsavedChanges(true);
     setIsFoodModalOpen(false);
     setFoodModalTab('library');
     setLibrarySearchQuery('');
+    setFoodCategoryFilter('All');
+    setSelectedFoodForPortion(null);
+    setPortionAmount('');
+  };
+
+  const parseAmountMultiplier = (customAmount: string, originalAmount: string): number => {
+    const customNum = parseFloat(customAmount);
+    const originalNum = parseFloat(originalAmount);
+    if (!isNaN(customNum) && !isNaN(originalNum) && originalNum > 0) {
+      return customNum / originalNum;
+    }
+    return 1;
   };
 
   const calculateDayMacros = (day: DietDay) => {
@@ -616,19 +686,24 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
       </div>
 
       {/* Food Add Modal */}
-      <Modal isOpen={isFoodModalOpen} onClose={() => { setIsFoodModalOpen(false); setFoodModalTab('library'); setFoodFormErrors({}); }} title="افزودن ماده غذایی">
+      <Modal isOpen={isFoodModalOpen} onClose={() => { setIsFoodModalOpen(false); setFoodModalTab('library'); setFoodFormErrors({}); setSelectedFoodForPortion(null); setPortionAmount(''); setFoodCategoryFilter('All'); }} title="افزودن ماده غذایی">
           <div className="space-y-4">
             {/* Tab Navigation */}
             <div className="flex gap-2 border-b border-gray-200 dark:border-dark-700">
               <button
                 onClick={() => setFoodModalTab('library')}
-                className={`pb-3 px-4 font-semibold transition-colors ${
+                className={`pb-3 px-4 font-semibold transition-colors flex items-center gap-2 ${
                   foodModalTab === 'library'
                     ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 از کتابخانه
+                {foodModalTab === 'library' && filteredLibraryFoods.length > 0 && (
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
+                    {filteredLibraryFoods.length}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setFoodModalTab('custom')}
@@ -644,70 +719,265 @@ export const NutritionBuilder: React.FC<NutritionBuilderProps> = ({ athlete, onS
 
             {/* Library Tab */}
             {foodModalTab === 'library' && (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                <div>
-                  <div className="relative">
-                    <Search
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                      size={16}
-                    />
-                    <Input
-                      type="text"
-                      placeholder="جستجوی غذا..."
-                      value={librarySearchQuery}
-                      onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                      className="pr-10 h-10 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800"
-                    />
-                  </div>
-                </div>
+              <div className="flex flex-col max-h-[500px]">
+                {/* Portion Preset View */}
+                {selectedFoodForPortion ? (
+                  <div className="space-y-4 p-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => { setSelectedFoodForPortion(null); setPortionAmount(''); }}
+                        className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
+                      >
+                        <RotateCcw size={18} className="text-gray-500" />
+                      </button>
+                      <div>
+                        <p className="font-bold text-gray-800 dark:text-white">{selectedFoodForPortion.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">انتخاب مقدار</p>
+                      </div>
+                    </div>
 
-                {libraryLoading && (
-                  <div className="space-y-3 py-4">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="p-3 bg-gray-100 dark:bg-dark-900 rounded-xl animate-pulse">
-                        <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-1/3 mb-2"></div>
-                        <div className="flex gap-3">
-                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                    <div>
+                      <Label className="text-sm text-gray-600 dark:text-gray-400">مقدار سفارشی</Label>
+                      <Input
+                        value={portionAmount}
+                        onChange={(e) => setPortionAmount(e.target.value)}
+                        placeholder={selectedFoodForPortion.amount}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">انتخاب سریع</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PORTION_PRESETS.map(preset => (
+                          <button
+                            key={preset}
+                            onClick={() => setPortionAmount(preset)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                              portionAmount === preset
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-dark-900 rounded-xl p-3 border border-gray-200 dark:border-dark-700">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>مقدار پیش‌فرض: {selectedFoodForPortion.amount}</span>
+                        <span>{portionAmount || selectedFoodForPortion.amount}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => handleAddFoodFromLibrary(selectedFoodForPortion, portionAmount || undefined)}
+                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      افزودن به وعده
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Search + Filters (Sticky) */}
+                    <div className="sticky top-0 z-10 bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700">
+                      <div className="p-4">
+                        <div className="relative">
+                          <Search
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                            size={16}
+                          />
+                          <Input
+                            type="text"
+                            placeholder="جستجوی غذا..."
+                            value={librarySearchQuery}
+                            onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                            className="pr-10 h-10 bg-gray-50 dark:bg-dark-900 focus:bg-white dark:focus:bg-dark-800"
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
 
-                {!libraryLoading && filteredLibraryFoods.length === 0 && (
-                  <div className="text-center py-6">
-                    <Utensils size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {librarySearchQuery ? 'غذایی یافت نشد' : 'کتابخانه خالی است'}
-                    </p>
-                  </div>
-                )}
+                      {/* Category Chips */}
+                      <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+                        {FOOD_CATEGORIES.map(cat => (
+                          <button
+                            key={cat.value}
+                            onClick={() => setFoodCategoryFilter(cat.value)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                              foodCategoryFilter === cat.value
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-600 hover:bg-gray-200 dark:hover:bg-dark-600'
+                            }`}
+                          >
+                            {cat.icon} {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                {!libraryLoading && filteredLibraryFoods.length > 0 && (
-                  <div className="space-y-2">
-                    {filteredLibraryFoods.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleAddFoodFromLibrary(item)}
-                        className="w-full text-right p-3 bg-gray-50 dark:bg-dark-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-gray-200 dark:border-dark-700 transition-colors"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-800 dark:text-white">{item.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex gap-2">
-                              <span className="flex items-center gap-1"><Flame size={10} className="text-orange-500" /> {item.calories}</span>
-                              <span className="flex items-center gap-1"><Activity size={10} className="text-blue-500" /> P: {item.protein}</span>
-                              <span className="flex items-center gap-1"><Wheat size={10} className="text-amber-500" /> C: {item.carbs}</span>
-                              <span className="flex items-center gap-1"><Droplet size={10} className="text-purple-500" /> F: {item.fat}</span>
+                    {/* Food List */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      {libraryLoading && (
+                        <div className="space-y-3 py-4">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="p-3 bg-gray-100 dark:bg-dark-900 rounded-xl animate-pulse">
+                              <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-1/3 mb-2"></div>
+                              <div className="flex gap-3">
+                                <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-dark-700 rounded w-12"></div>
+                              </div>
                             </div>
-                          </div>
-                          <Plus size={16} className="text-emerald-600 ml-2 flex-shrink-0" />
+                          ))}
                         </div>
-                      </button>
-                    ))}
-                  </div>
+                      )}
+
+                      {!libraryLoading && filteredLibraryFoods.length === 0 && (
+                        <div className="text-center py-8">
+                          <div className="w-20 h-20 bg-gray-100 dark:bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Utensils size={40} className="text-gray-300 dark:text-gray-600" />
+                          </div>
+                          <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
+                            {librarySearchQuery || foodCategoryFilter !== 'All' ? 'غذایی یافت نشد' : 'کتابخانه خالی است'}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            {librarySearchQuery || foodCategoryFilter !== 'All' ? 'فیلترها را تغییر دهید' : 'از بخش کتابخانه غذا اضافه کنید'}
+                          </p>
+                          {(librarySearchQuery || foodCategoryFilter !== 'All') && (
+                            <button
+                              onClick={() => { setLibrarySearchQuery(''); setFoodCategoryFilter('All'); }}
+                              className="mt-3 flex items-center gap-2 mx-auto px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                            >
+                              <RotateCcw size={14} /> پاک کردن فیلترها
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {!libraryLoading && filteredLibraryFoods.length > 0 && (
+                        <>
+                          {/* Recently Used Section */}
+                          {!librarySearchQuery && foodCategoryFilter === 'All' && recentFoodIds.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock size={14} className="text-gray-400" />
+                                <p className="text-xs font-bold text-gray-500 dark:text-gray-400">اخیراً استفاده شده</p>
+                              </div>
+                              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                                {recentFoodIds
+                                  .map(id => libraryFoods.find(f => f.id === id))
+                                  .filter(Boolean)
+                                  .slice(0, 5)
+                                  .map(item => (
+                                    <button
+                                      key={item!.id}
+                                      onClick={() => handleAddFoodFromLibrary(item!)}
+                                      className="shrink-0 p-2 bg-gray-50 dark:bg-dark-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-gray-200 dark:border-dark-700 transition-colors text-right min-w-[120px]"
+                                    >
+                                      <p className="text-xs font-bold text-gray-800 dark:text-white truncate">{item!.name}</p>
+                                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 flex gap-1">
+                                        <span>{item!.calories} kcal</span>
+                                        <span>•</span>
+                                        <span>{item!.amount}</span>
+                                      </div>
+                                    </button>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Group by Category */}
+                          {(() => {
+                            const grouped: Record<string, FoodLibraryItem[]> = {};
+                            filteredLibraryFoods.forEach(item => {
+                              const cat = item.category || 'سایر';
+                              if (!grouped[cat]) grouped[cat] = [];
+                              grouped[cat].push(item);
+                            });
+                            return Object.keys(grouped).map(category => {
+                              const items = grouped[category];
+                              return (
+                              <div key={category}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">{category}</p>
+                                  <span className="text-[10px] bg-gray-200 dark:bg-dark-600 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full font-bold">
+                                    {items.length}
+                                  </span>
+                                </div>
+                                <div className="space-y-2">
+                                  {items.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    onClick={() => setSelectedFoodForPortion(item)}
+                                    className="w-full text-right p-3 bg-gray-50 dark:bg-dark-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-gray-200 dark:border-dark-700 transition-colors group"
+                                  >
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-semibold text-gray-800 dark:text-white text-sm truncate">{item.name}</span>
+                                          {item.brand && (
+                                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{item.brand}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex gap-2 flex-wrap">
+                                          <span className="flex items-center gap-1 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded-md">
+                                            <Flame size={10} className="text-orange-500" /> {item.calories}
+                                          </span>
+                                          <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-md">
+                                            <Activity size={10} className="text-blue-500" /> P: {item.protein}
+                                          </span>
+                                          <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-md">
+                                            <Wheat size={10} className="text-amber-500" /> C: {item.carbs}
+                                          </span>
+                                          <span className="flex items-center gap-1 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded-md">
+                                            <Droplet size={10} className="text-purple-500" /> F: {item.fat}
+                                          </span>
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                                          {item.amount}{item.servingSize ? ` • ${item.servingSize}` : ''}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 ml-2">
+                                        <Plus size={16} className="text-emerald-600 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                            });
+                          })()}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Session Macros Footer */}
+                    {(sessionMacros.calories > 0 || sessionMacros.protein > 0 || sessionMacros.carbs > 0 || sessionMacros.fat > 0) && (
+                      <div className="border-t border-gray-200 dark:border-dark-700 p-3 bg-gray-50 dark:bg-dark-900">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-gray-500 dark:text-gray-400">این جلسه:</span>
+                          <div className="flex gap-3">
+                            <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                              <Flame size={10} /> {Math.round(sessionMacros.calories)}
+                            </span>
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <Activity size={10} /> P: {Math.round(sessionMacros.protein)}
+                            </span>
+                            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                              <Wheat size={10} /> C: {Math.round(sessionMacros.carbs)}
+                            </span>
+                            <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                              <Droplet size={10} /> F: {Math.round(sessionMacros.fat)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

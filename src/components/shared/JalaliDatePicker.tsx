@@ -1,6 +1,15 @@
-import React, { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { toJalaali, toGregorian } from "jalaali-js";
+import {
+  JALALI_MONTHS,
+  JALALI_DAY_NAMES_SHORT,
+  getJalaliMonthLength,
+  jalaliToISO,
+  getTodayJalali,
+  getJalaliDayName,
+  formatJalaliFull,
+} from "../../utils/jalali";
 
 interface JalaliDatePickerProps {
   value: string; // ISO date string
@@ -17,23 +26,12 @@ const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(0);
+  const [manualInput, setManualInput] = useState("");
+  const [isManualMode, setIsManualMode] = useState(false);
+  const [manualError, setManualError] = useState("");
+  const pickerRef = useRef<HTMLDivElement>(null);
 
-  const jalaliMonths = [
-    "فروردین",
-    "اردیبهشت",
-    "خرداد",
-    "تیر",
-    "مرداد",
-    "شهریور",
-    "مهر",
-    "آبان",
-    "آذر",
-    "دی",
-    "بهمن",
-    "اسفند",
-  ];
-
-  const jalaliDayNames = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
+  const today = getTodayJalali();
 
   // Parse current date or today
   const now = new Date();
@@ -55,29 +53,67 @@ const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
     return date.getDay();
   };
 
-  // Get days in month
-  const getDaysInMonth = (jm: number): number => {
-    if (jm <= 6) return 31;
-    if (jm < 12) return 30;
-    return 29;
-  };
-
+  // BUG-1 FIX: Use jalaaliMonthLength for correct Esfand leap year handling
+  const daysInMonth = getJalaliMonthLength(displayYear, displayMonth);
   const firstDay = getFirstDayOfMonth(displayYear, displayMonth);
-  const daysInMonth = getDaysInMonth(displayMonth);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const blanks = Array.from({ length: firstDay }, (_, i) => i);
 
   const handleDateSelect = (day: number) => {
-    const gregorian = toGregorian(displayYear, displayMonth, day);
-    const dateString = new Date(gregorian.gy, gregorian.gm - 1, gregorian.gd)
-      .toISOString()
-      .split("T")[0];
+    const dateString = jalaliToISO(displayYear, displayMonth, day);
     onChange(dateString);
     setIsOpen(false);
   };
 
   const handlePrevMonth = () => setCurrentMonth(currentMonth - 1);
   const handleNextMonth = () => setCurrentMonth(currentMonth + 1);
+
+  // FEATURE-1: Go to today
+  const handleGoToToday = () => {
+    setCurrentMonth(0);
+  };
+
+  // FEATURE-5: Manual Jalali date input
+  const handleManualInput = () => {
+    const parts = manualInput.replace(/[\/\-\\]/g, "/").split("/");
+    if (parts.length !== 3) {
+      setManualError("فرمت صحیح: ۱۴۰۵/۰۳/۳۰");
+      return;
+    }
+    const jy = parseInt(parts[0]);
+    const jm = parseInt(parts[1]);
+    const jd = parseInt(parts[2]);
+    if (isNaN(jy) || isNaN(jm) || isNaN(jd)) {
+      setManualError("اعداد صحیح وارد کنید");
+      return;
+    }
+    if (jm < 1 || jm > 12) {
+      setManualError("ماه باید بین ۱ تا ۱۲ باشد");
+      return;
+    }
+    const maxDay = getJalaliMonthLength(jy, jm);
+    if (jd < 1 || jd > maxDay) {
+      setManualError(`روز باید بین ۱ تا ${maxDay} باشد`);
+      return;
+    }
+    const dateString = jalaliToISO(jy, jm, jd);
+    onChange(dateString);
+    setIsOpen(false);
+    setManualInput("");
+    setManualError("");
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen]);
 
   const displayValue =
     value && value.length > 0
@@ -87,7 +123,7 @@ const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
       : placeholder;
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" ref={pickerRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -97,63 +133,117 @@ const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 right-0 bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-2xl shadow-lg z-50 p-4 min-w-80">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+        <div className="absolute top-full mt-2 right-0 bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-2xl shadow-lg z-[60] p-4 min-w-80">
+          {/* Mode Toggle */}
+          <div className="flex items-center justify-between mb-3">
             <button
               type="button"
-              onClick={handleNextMonth}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+              onClick={() => { setIsManualMode(!isManualMode); setManualError(""); }}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
             >
-              <ChevronLeft size={18} />
+              {isManualMode ? "انتخاب از تقویم" : "ورود دستی تاریخ"}
             </button>
-            <div className="text-center font-bold text-gray-900 dark:text-white">
-              {jalaliMonths[displayMonth - 1]} {displayYear}
-            </div>
+            {/* FEATURE-1: Go to today button */}
             <button
               type="button"
-              onClick={handlePrevMonth}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+              onClick={handleGoToToday}
+              className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
             >
-              <ChevronRight size={18} />
+              <CalendarDays size={12} />
+              امروز
             </button>
           </div>
 
-          {/* Day names */}
-          <div className="grid grid-cols-7 gap-1 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400">
-            {jalaliDayNames.map((day) => (
-              <div key={day} className="text-center">
-                {day}
+          {isManualMode ? (
+            /* FEATURE-5: Manual input mode */
+            <div className="space-y-3">
+              <div>
+                <input
+                  type="text"
+                  value={manualInput}
+                  onChange={(e) => { setManualInput(e.target.value); setManualError(""); }}
+                  placeholder="۱۴۰۵/۰۳/۳۰"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-dark-700 bg-white dark:bg-dark-800 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") handleManualInput(); }}
+                />
+                {manualError && (
+                  <p className="text-xs text-red-500 mt-1">{manualError}</p>
+                )}
               </div>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {blanks.map((_, i) => (
-              <div key={`blank-${i}`} />
-            ))}
-            {days.map((day) => (
               <button
-                key={day}
                 type="button"
-                onClick={() => handleDateSelect(day)}
-                className={`
-                  aspect-square flex items-center justify-center rounded-lg text-sm font-semibold
-                  transition-all duration-200 cursor-pointer
-                  ${
-                    day === currentJalali.jd &&
-                    displayMonth === currentJalali.jm &&
-                    displayYear === currentJalali.jy
-                      ? "bg-blue-600 text-white shadow-lg"
-                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                  }
-                `}
+                onClick={handleManualInput}
+                className="w-full px-3 py-2 text-sm font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
-                {day}
+                ثبت تاریخ
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="text-center font-bold text-gray-900 dark:text-white">
+                  {JALALI_MONTHS[displayMonth - 1]} {displayYear}
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+
+              {/* Day names */}
+              <div className="grid grid-cols-7 gap-1 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400">
+                {JALALI_DAY_NAMES_SHORT.map((day) => (
+                  <div key={day} className="text-center">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 gap-1">
+                {blanks.map((_, i) => (
+                  <div key={`blank-${i}`} />
+                ))}
+                {days.map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => handleDateSelect(day)}
+                    title={getJalaliDayName(new Date(toGregorian(displayYear, displayMonth, day).gy, toGregorian(displayYear, displayMonth, day).gm - 1, toGregorian(displayYear, displayMonth, day).gd))}
+                    className={`
+                      aspect-square flex items-center justify-center rounded-lg text-sm font-semibold
+                      transition-all duration-200 cursor-pointer
+                      ${
+                        day === currentJalali.jd &&
+                        displayMonth === currentJalali.jm &&
+                        displayYear === currentJalali.jy
+                          ? "bg-blue-600 text-white shadow-lg"
+                          : day === today.jd &&
+                            displayMonth === today.jm &&
+                            displayYear === today.jy
+                          ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
+                          : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-700"
+                      }
+                    `}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Close button */}
           <button
@@ -164,14 +254,6 @@ const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
             بستن
           </button>
         </div>
-      )}
-
-      {/* Overlay to close picker */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
-        />
       )}
     </div>
   );

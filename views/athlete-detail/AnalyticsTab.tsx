@@ -9,6 +9,7 @@ import {
 import { useAthleteContext } from './AthleteContext';
 import { calculateBodyComposition } from '../../utils/helpers';
 import { Measurement } from '../../types';
+import { formatJalaliChartLabel, formatJalaliFull } from '../../src/utils/jalali';
 
 interface Props {
     isDarkMode: boolean;
@@ -26,7 +27,7 @@ export const AnalyticsTab: React.FC<Props> = ({ isDarkMode, setIsAddMeasurementO
         return athlete.measurements
             .slice(-10)
             .map(m => ({
-                date: new Date(m.date).toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' }),
+                date: formatJalaliChartLabel(m.date),
                 weight: m.weight,
                 bodyFat: m.bodyFat || null,
                 waist: m.waist || null
@@ -60,7 +61,7 @@ export const AnalyticsTab: React.FC<Props> = ({ isDarkMode, setIsAddMeasurementO
         return athlete.measurements
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .map(m => ({
-                date: new Date(m.date).toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' }),
+                date: formatJalaliChartLabel(m.date),
                 value: m[circumferenceMetric as keyof Measurement] || 0
             }));
     }, [athlete.measurements, circumferenceMetric]);
@@ -128,7 +129,7 @@ export const AnalyticsTab: React.FC<Props> = ({ isDarkMode, setIsAddMeasurementO
                                     .filter(m => m.photos && m.photos[compareAngle])
                                     .map((m, idx) => (
                                         <option key={idx} value={m.date}>
-                                            {new Date(m.date).toLocaleDateString('fa-IR')} - (وزن: {m.weight})
+                                            {formatJalaliFull(m.date)} - (وزن: {m.weight})
                                         </option>
                                     ))
                                 }
@@ -160,7 +161,7 @@ export const AnalyticsTab: React.FC<Props> = ({ isDarkMode, setIsAddMeasurementO
                                     .filter(m => m.photos && m.photos[compareAngle])
                                     .map((m, idx) => (
                                         <option key={idx} value={m.date}>
-                                            {new Date(m.date).toLocaleDateString('fa-IR')} - (وزن: {m.weight})
+                                            {formatJalaliFull(m.date)} - (وزن: {m.weight})
                                         </option>
                                     ))
                                 }

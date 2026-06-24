@@ -207,6 +207,7 @@ export const searchFoodLibrary = async (
   return items.filter(item =>
     item.name.toLowerCase().includes(lowerQuery) ||
     (item.category && item.category.toLowerCase().includes(lowerQuery)) ||
+    (item.brand && item.brand.toLowerCase().includes(lowerQuery)) ||
     (item.notes && item.notes.toLowerCase().includes(lowerQuery))
   );
 };
@@ -219,8 +220,9 @@ export const exportDatabase = async (): Promise<string> => {
   const exercises = await getExercises();
   const nutrition = await getNutritionPlans();
   const profile = await getTrainerProfile();
+  const foodLibrary = await getFoodLibraryItems();
 
-  return JSON.stringify({ athletes, exercises, plans, nutrition, profile });
+  return JSON.stringify({ athletes, exercises, plans, nutrition, profile, foodLibrary });
 };
 
 export const importDatabase = async (jsonString: string): Promise<boolean> => {
@@ -243,6 +245,9 @@ export const importDatabase = async (jsonString: string): Promise<boolean> => {
     }
     if (data.profile) {
       await saveTrainerProfile(data.profile);
+    }
+    if (data.foodLibrary) {
+      await Promise.all(data.foodLibrary.map((f: FoodLibraryItem) => saveFoodLibraryItem(f)));
     }
 
     return true;

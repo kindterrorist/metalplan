@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Exercise } from '../types';
 import { Button, Label, Modal, Select, Input, Textarea } from '../components/UI';
-import { Plus, Dumbbell, Trash2, Edit2, Video, FileText, Search, Filter } from 'lucide-react';
+import { Plus, Dumbbell, Trash2, Edit2, Video, FileText, Search, Filter, X } from 'lucide-react';
 import { MUSCLE_GROUPS } from '../constants';
 import { deleteExercise, saveExercise } from '../services/electronDb';
+import { generateId } from '../utils/helpers';
 
 interface ExercisesViewProps {
     exercises: Exercise[];
@@ -17,9 +18,20 @@ const EQUIPMENT_TYPES = [
     { value: 'Machine', label: 'دستگاه' },
     { value: 'Dumbbell', label: 'دمبل' },
     { value: 'Barbell', label: 'هالتر' },
-    { value: 'Cable', label: 'سیم‌کش' },
+    { value: 'Cable', label: 'سیم\u200Cکش' },
     { value: 'Bodyweight', label: 'وزن بدن' }
 ];
+
+const MUSCLE_GROUP_ICONS: Record<string, string> = {
+    'سینه': '🫁',
+    'زیربغل و پشت': '🔙',
+    'سرشانه': '💪',
+    'جلوبازو': '💪',
+    'پشت\u200Cبازو': '💪',
+    'پـا': '🦵',
+    'شکم و پهلو': '🏋️',
+    'هوازی': '🏃',
+};
 
 export const ExercisesView: React.FC<ExercisesViewProps> = ({
     exercises,
@@ -32,56 +44,88 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
     const [filterEquipment, setFilterEquipment] = useState('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEx, setEditingEx] = useState<Exercise | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+    // BUG-E3 FIX: Search also matches muscle group and description
     const filtered = exercises.filter(e =>
         (filterMuscle === 'All' || e.muscleGroup === filterMuscle) &&
         (filterEquipment === 'All' || e.type === filterEquipment) &&
-        e.name.toLowerCase().includes(search.toLowerCase())
+        (e.name.toLowerCase().includes(search.toLowerCase()) ||
+         e.muscleGroup.toLowerCase().includes(search.toLowerCase()) ||
+         (e.description && e.description.toLowerCase().includes(search.toLowerCase())))
     );
 
     const handleEdit = (ex: Exercise) => {
         setEditingEx(ex);
+        setFormErrors({});
         setIsModalOpen(true);
     };
 
     const handleAddNew = () => {
         setEditingEx(null);
+        setFormErrors({});
         setIsModalOpen(true);
     };
 
+    // BUG-E2 FIX: Add try/catch and loading state
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
 
+        // BUG-E1 FIX: Include notes field
+        const name = formData.get('name') as string;
+        if (!name.trim()) {
+            setFormErrors({ name: 'نام حرکت الزامی است' });
+            return;
+        }
+
         const exerciseData: Exercise = {
-            id: editingEx ? editingEx.id : crypto.randomUUID(),
-            name: formData.get('name') as string,
+            id: editingEx ? editingEx.id : generateId(),
+            name: name.trim(),
             muscleGroup: formData.get('muscle') as string,
             type: formData.get('type') as Exercise['type'],
-            videoUrl: formData.get('videoUrl') as string,
-            description: formData.get('description') as string
+            videoUrl: formData.get('videoUrl') as string || undefined,
+            description: formData.get('description') as string || undefined,
+            notes: formData.get('notes') as string || undefined,
         };
 
-        await saveExercise(exerciseData);
-        refreshData();
-        setIsModalOpen(false);
-        addToast(editingEx ? 'ویرایش شد' : 'حرکت اضافه شد');
+        try {
+            setIsSaving(true);
+            await saveExercise(exerciseData);
+            await refreshData();
+            setIsModalOpen(false);
+            setEditingEx(null);
+            addToast(editingEx ? 'حرکت ویرایش شد' : 'حرکت اضافه شد');
+        } catch (err) {
+            console.error('Error saving exercise:', err);
+            addToast('خطا در ذخیره حرکت');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const getEquipmentLabel = (type: string) => {
         return EQUIPMENT_TYPES.find(e => e.value === type)?.label || type;
     };
 
+    const hasActiveFilters = filterMuscle !== 'All' || filterEquipment !== 'All' || search.trim() !== '';
+
     return (
         <div className="space-y-6 pb-20">
-            {/* Header */}
+            {/* Header with exercise count - PROBLEM-E1 FIX */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
                         <Dumbbell className="text-primary-600" />
                         بانک حرکات
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">مدیریت لیست حرکات تمرینی</p>
+                    <p className="text-gray-500 text-sm mt-1">
+                        {filtered.length} حرکت | {exercises.length} حرکت کل
+                        {hasActiveFilters && (
+                            <span className="text-primary-500 mr-2">(فیلتر شده)</span>
+                        )}
+                    </p>
                 </div>
                 <Button onClick={handleAddNew}>
                     <Plus size={20} className="ml-2" /> حرکت جدید
@@ -94,11 +138,19 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
                     <Search className="absolute right-3 top-3 text-gray-400" size={20} />
                     <input
                         type="text"
-                        placeholder="جستجو در حرکات..."
+                        placeholder="جستجو در نام، عضله، توضیحات..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="w-full bg-gray-50 dark:bg-dark-900 border-none rounded-xl py-3 pr-10 pl-4 focus:ring-2 focus:ring-primary-500 dark:text-white"
                     />
+                    {search && (
+                        <button
+                            onClick={() => setSearch('')}
+                            className="absolute left-3 top-3 text-gray-400 hover:text-gray-600"
+                        >
+                            <X size={18} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -106,7 +158,10 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                         <button onClick={() => setFilterMuscle('All')} className={`px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-colors border ${filterMuscle === 'All' ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300' : 'bg-transparent border-gray-200 text-gray-600 dark:border-dark-600 dark:text-gray-400'}`}>همه عضلات</button>
                         {MUSCLE_GROUPS.map(m => (
-                            <button key={m} onClick={() => setFilterMuscle(m)} className={`px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-colors border ${filterMuscle === m ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300' : 'bg-transparent border-gray-200 text-gray-600 dark:border-dark-600 dark:text-gray-400'}`}>{m}</button>
+                            <button key={m} onClick={() => setFilterMuscle(m)} className={`px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-colors border flex items-center gap-1 ${filterMuscle === m ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300' : 'bg-transparent border-gray-200 text-gray-600 dark:border-dark-600 dark:text-gray-400'}`}>
+                                <span>{MUSCLE_GROUP_ICONS[m] || '💪'}</span>
+                                {m}
+                            </button>
                         ))}
                     </div>
 
@@ -134,16 +189,17 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
                                 <h3 className="font-bold text-gray-800 dark:text-white truncate pr-1">{ex.name}</h3>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                                        {ex.muscleGroup}
+                                        {MUSCLE_GROUP_ICONS[ex.muscleGroup] || '💪'} {ex.muscleGroup}
                                     </span>
                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-100 dark:border-purple-800">
                                         {getEquipmentLabel(ex.type)}
                                     </span>
                                 </div>
-                                {(ex.description || ex.videoUrl) && (
-                                    <div className="flex gap-3 mt-3 pt-3 border-t border-gray-50 dark:border-dark-700">
+                                {(ex.description || ex.videoUrl || ex.notes) && (
+                                    <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-50 dark:border-dark-700">
                                         {ex.videoUrl && <a href={ex.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 text-red-500 hover:text-red-600"><Video size={12} /> ویدیو</a>}
                                         {ex.description && <span className="text-xs flex items-center gap-1 text-gray-400" title={ex.description}><FileText size={12} /> توضیحات</span>}
+                                        {ex.notes && <span className="text-xs flex items-center gap-1 text-amber-500" title={ex.notes}><FileText size={12} /> یادداشت</span>}
                                     </div>
                                 )}
                             </div>
@@ -161,25 +217,62 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
                 ))}
             </div>
 
+            {/* PROBLEM-E2 FIX: Better empty state with clear filters */}
             {filtered.length === 0 && (
                 <div className="text-center py-12 text-gray-400">
                     <Dumbbell size={48} className="mx-auto mb-4 opacity-20" />
-                    <p>هیچ حرکتی یافت نشد</p>
+                    <p className="font-bold">
+                        {hasActiveFilters
+                            ? "هیچ حرکتی با فیلترهای انتخابی یافت نشد"
+                            : "هیچ حرکتی یافت نشد"}
+                    </p>
+                    <p className="text-sm mt-1 text-gray-400">
+                        {hasActiveFilters
+                            ? "فیلترها را تغییر دهید یا پاک کنید"
+                            : "اولین حرکت خود را اضافه کنید"}
+                    </p>
+                    {hasActiveFilters && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setSearch('');
+                                setFilterMuscle('All');
+                                setFilterEquipment('All');
+                            }}
+                            className="mt-3"
+                        >
+                            پاک کردن فیلترها
+                        </Button>
+                    )}
+                    {!hasActiveFilters && (
+                        <Button onClick={handleAddNew} className="mt-3">
+                            <Plus size={18} className="ml-2" /> حرکت جدید
+                        </Button>
+                    )}
                 </div>
             )}
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingEx ? "ویرایش حرکت" : "افزودن حرکت جدید"}>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <Label>نام حرکت</Label>
-                        <Input name="name" required autoFocus defaultValue={editingEx?.name} placeholder="مثلا: پرس سینه دمبل" />
+                        <Label>نام حرکت *</Label>
+                        <Input
+                            name="name"
+                            autoFocus
+                            defaultValue={editingEx?.name}
+                            placeholder="مثلا: پرس سینه دمبل"
+                            className={formErrors.name ? "border-red-500" : ""}
+                        />
+                        {formErrors.name && (
+                            <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label>عضله هدف</Label>
                             <Select name="muscle" defaultValue={editingEx?.muscleGroup || MUSCLE_GROUPS[0]}>
-                                {MUSCLE_GROUPS.map(m => <option key={m} value={m}>{m}</option>)}
+                                {MUSCLE_GROUPS.map(m => <option key={m} value={m}>{MUSCLE_GROUP_ICONS[m] || '💪'} {m}</option>)}
                             </Select>
                         </div>
                         <div>
@@ -202,10 +295,16 @@ export const ExercisesView: React.FC<ExercisesViewProps> = ({
                         <Textarea name="description" rows={3} placeholder="نکات مهم در مورد فرم اجرای حرکت..." defaultValue={editingEx?.description} />
                     </div>
 
+                    {/* BUG-E1 FIX: Add notes field */}
+                    <div>
+                        <Label>یادداشت‌های مربی (اختیاری)</Label>
+                        <Textarea name="notes" rows={2} placeholder="نکات داخلی، اشتباهات رایج،..." defaultValue={editingEx?.notes} />
+                    </div>
+
                     <div className="pt-2 flex gap-3">
                         <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsModalOpen(false)}>انصراف</Button>
-                        <Button type="submit" className="flex-[2] h-12">
-                            {editingEx ? 'ذخیره تغییرات' : 'ثبت حرکت'}
+                        <Button type="submit" className="flex-[2] h-12" disabled={isSaving}>
+                            {isSaving ? 'در حال ذخیره...' : (editingEx ? 'ذخیره تغییرات' : 'ثبت حرکت')}
                         </Button>
                     </div>
                 </form>

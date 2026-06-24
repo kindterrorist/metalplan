@@ -33,6 +33,7 @@ import {
   importDatabase,
   resetDatabaseStore,
 } from "../services/electronDb";
+import { formatBackupFilename } from "../src/utils/jalali";
 
 interface SettingsViewProps {
   trainerProfile: TrainerProfile | null;
@@ -658,9 +659,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `morabi-backup-${
-                      new Date().toISOString().split("T")[0]
-                    }.json`;
+                    a.download = formatBackupFilename();
                     a.click();
                   }}
                 >
